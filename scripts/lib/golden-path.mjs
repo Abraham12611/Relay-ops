@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
   apiRequest,
+  approvePlan,
   assertStatus,
   executePlan,
   integrationEnabled,
@@ -86,19 +87,13 @@ export async function runGoldenPath() {
     role: "agentPropose",
     method: "POST",
     idempotencyKey: `${runId}:agent-self-approval`,
-    body: { planId: planV1.id, planHash: planV1.hash, decision: "APPROVE" },
+    body: { planId: planV1.id, planHash: planV1.hash, planVersion: planV1.version, decision: "APPROVE" },
   });
   assertStatus(selfApproval, 403, "agent self-approval");
   assert.deepEqual((await readIncidentEvents(incidentId)).map(({ id }) => id), beforeForbiddenWrites, "forbidden actions must not append audit/business events");
   addStep(steps, "execution without approval and agent self-approval both forbidden with no event mutation");
 
-  const approvalV1Response = await apiRequest("/api/v1/recovery/approvals", {
-    role: "dispatcher",
-    method: "POST",
-    idempotencyKey: `${runId}:approval-v1`,
-    body: { planId: planV1.id, planHash: planV1.hash, decision: "APPROVE" },
-  });
-  const approvalV1 = record(responseData(approvalV1Response, [200, 201], "dispatcher approval for version 1"), "approval");
+  const approvalV1 = await approvePlan(planV1, `${runId}:approval-v1`);
   assert.ok(approvalV1.id, "dispatcher approval must have an ID");
 
   const planV2 = await proposeRecovery(incidentId, `${runId}:plan-v2`);
@@ -110,13 +105,7 @@ export async function runGoldenPath() {
   assert.deepEqual((await readIncidentEvents(incidentId)).map(({ id }) => id), beforeStaleExecution, "stale execution must not append business events");
   addStep(steps, "re-plan incremented the version and stale approval was rejected without mutation");
 
-  const approvalV2Response = await apiRequest("/api/v1/recovery/approvals", {
-    role: "dispatcher",
-    method: "POST",
-    idempotencyKey: `${runId}:approval-v2`,
-    body: { planId: planV2.id, planHash: planV2.hash, decision: "APPROVE" },
-  });
-  const approvalV2 = record(responseData(approvalV2Response, [200, 201], "dispatcher approval for current plan"), "approval");
+  const approvalV2 = await approvePlan(planV2, `${runId}:approval-v2`);
   const currentIncident = await readIncident(incidentId);
   assert.equal(currentIncident.status, "APPROVED", "only dispatcher approval of current plan should approve the incident");
 
@@ -212,13 +201,7 @@ export async function runRejectedApprovalProbe() {
   });
   assert.equal(result.eligible, true, "seeded plan must be feasible for rejection test");
   const plan = await proposeRecovery(incidentId, `${runId}:plan`);
-  const approvalResponse = await apiRequest("/api/v1/recovery/approvals", {
-    role: "dispatcher",
-    method: "POST",
-    idempotencyKey: `${runId}:reject`,
-    body: { planId: plan.id, planHash: plan.hash, decision: "REJECT", reason: "Negative-path test." },
-  });
-  const approval = record(responseData(approvalResponse, [200, 201], "dispatcher rejects plan"), "approval");
+  const approval = await approvePlan(plan, `${runId}:reject`, "REJECT", "Negative-path test.");
   const beforeRejectedExecution = (await readIncidentEvents(incidentId)).map(({ id }) => id);
   const attempt = await executePlan(approval, plan, `${runId}:execute-rejected`);
   assertStatus(attempt, [403, 409], "execution after rejected approval");
