@@ -43,7 +43,7 @@ src/
   lib/{db,auth,domain,services,switch,notifications}/
   types/contracts.ts
   tests/{unit,integration,e2e}/
-prisma/schema.prisma OR drizzle/  choose ONE before coding
+prisma/schema.prisma + prisma/migrations/ (Prisma ORM; SQLite)
 scripts/{seed,reset,smoke}.ts
 switch/{README.md,agent-instructions.md,room-kickoff.md}
 docs/
@@ -54,8 +54,8 @@ docs/
 - JSON REST + `GET /api/v1/cases/:id`, etc. Typed DTOs in one file. No direct database access from UI components.
 - Business service owns state machines. Agent tools call **same service layer** as operator UI, never write raw DB directly.
 - Persist an `Event` for each material decision and state transition; keep separate `CustomerNotification` projection.
-- Initial demo auth: fixture role switch in local-only demo behind `DEMO_MODE=true`; production deployment must not expose a role-escalation shortcut.
-- Agent auth: distinct scoped secret in request headers, never in browser bundles; rate limit if exposed publicly. Agent read tool and execution tool may use separate secrets.
+- Demo auth: `POST /api/v1/demo/session` requires the server-only `x-demo-operator-key`; it issues an HTTP-only signed persona cookie. Every protected handler validates signature, expiry, and server-side role. `DEMO_MODE=true` is required; arbitrary client role headers are ignored.
+- Agent auth: server validates a signed demo persona cookie issued only by the operator-authenticated session route. Agent read, proposal and execution scopes use distinct server-only secrets in request headers; never put these keys in browser bundles. A client-supplied role header is not an identity.
 - Data seeded with stable identifiers and resettable using admin-only local command.
 - Poll case state at 2–5 seconds for demo, or SSE if already available; never claim realtime GPS.
 - Send correlation IDs + idempotency keys through all services. Use transactions for approval execution.
@@ -72,11 +72,12 @@ Integration spikes:
 
 ## Environment
 ```env
-DATABASE_URL=file:./relayops.db
+DATABASE_URL=file:../relayops.db
 DEMO_MODE=true
-DEMO_OPERATOR_KEY=replace-with-local-only-key
-AGENT_READ_API_KEY=replace-with-secret
-AGENT_EXECUTE_API_KEY=replace-with-different-secret
+DEMO_OPERATOR_KEY=replace-with-a-random-operator-secret
+AGENT_READ_API_KEY=replace-with-read-secret
+AGENT_PROPOSE_API_KEY=replace-with-propose-secret
+AGENT_EXECUTE_API_KEY=replace-with-execute-secret
 APP_BASE_URL=http://localhost:3000
 # Configure Switch / Mattermost per official documented installed version
 ```

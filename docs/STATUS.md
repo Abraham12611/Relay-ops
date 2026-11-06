@@ -15,7 +15,7 @@
 |---|---|---|---|
 | F0 Repository initialized | Done | README and docs committed | planning |
 | F0 Switch + Mattermost agent proof | Not started | add authentic evidence link | E02 |
-| F1 Schema + seed + DTO freeze | In progress | [PR #6](https://github.com/Abraham12611/Relay-ops/pull/6): typed contracts, immutable scenario fixture, feasibility checks and tests; database schema/migrations remain | E03/E04 |
+| F1 Schema + seed + DTO freeze | In review | [PR #12](https://github.com/Abraham12611/Relay-ops/pull/12): Prisma schema/migration, deterministic PRE-INCIDENT reset, authenticated API routes and persistence tests; approval/execution remain downstream | E01/E03/E04 |
 | F2 Parallel features | Not started | PR links below | squads |
 | F3 Golden path integrated | Not started | test and video rehearsal | E01/E18 |
 | F4 Video, README and submission | Not started | public links | E19/E20 |
@@ -23,10 +23,10 @@
 ## Ticket tracker
 | Ticket | State | Owner | PR / proof | Blocker |
 |---|---|---|---|---|
-| E01 | Not started | — | — | — |
+| E01 | In review | Engineer 1 | [PR #12](https://github.com/Abraham12611/Relay-ops/pull/12): Next.js/TypeScript + Prisma/SQLite foundation, persisted incident/recovery APIs; install, test, typecheck, build, reset and local smoke verified | Approval lookup/execution and live Switch workflow remain out of scope |
 | E02 | Not started | — | — | — |
-| E03 | In progress | — | [PR #6](https://github.com/Abraham12611/Relay-ops/pull/6): deterministic in-memory fixture; persistence/schema not started | — |
-| E04 | In progress | — | [PR #6](https://github.com/Abraham12611/Relay-ops/pull/6): shared TypeScript contracts; auth/routes not started | — |
+| E03 | In review | — | [PR #12](https://github.com/Abraham12611/Relay-ops/pull/12): SQLite schema/migration and deterministic PRE-INCIDENT database seed added | — |
+| E04 | In review | — | [PR #12](https://github.com/Abraham12611/Relay-ops/pull/12): shared contracts, server-enforced demo sessions, scoped agent authorization and versioned API routes added | — |
 | E05 | Not started | — | — | — |
 | E06 | In progress | — | [PR #6](https://github.com/Abraham12611/Relay-ops/pull/6): read-only fixture feasibility checks; API integration not started | — |
 | E07 | Not started | — | — | — |
@@ -60,7 +60,7 @@
 ## Blocker log
 | Time | Owner | Blocker | Decision / next action |
 |---|---|---|---|
-| 2026-11-06 | Engineer 5 / E02 | No runnable RelayOps API or authentic Switch activity; no base URL/role credentials, and E02 reports no Docker/Switch service in its cloud environment | Added gated contract smoke/reset tooling and rehearsal checklist; resume live verification when API, credentials and real Switch room are available |
+| 2026-11-06 | Engineer 1 / E02 | PR #12 adds the runnable Next.js/SQLite foundation and local persistence tests; approval lookup/execution endpoints and authentic Switch proof remain unavailable or unverified | Continue the full rehearsal after downstream workflow endpoints and a real Switch environment are available; local API tests are not Switch evidence |
 
 ## Release cut line
 If F3 is at risk, stop maps, agent #2, extra flows, charts, email and marketing pages. Protect live-switch proof, approved execution, delivery closure and recorded submission.

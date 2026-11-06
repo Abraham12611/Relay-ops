@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String     @id
+  displayName       String
+  role              String
+  demo              Boolean    @default(true)
+  customerShipments Shipment[] @relation("ShipmentCustomer")
+  reportedIncidents Incident[] @relation("IncidentReporter")
+  driver            Driver?
+}
+
+model Vehicle {
+  id          String         @id
+  code        String         @unique
+  capacityUnits Int
+  occupiedUnits Int
+  status      String
+  locationLat Float
+  locationLng Float
+  driver      Driver?
+  shipments   Shipment[]    @relation("ShipmentVehicle")
+  incidents   Incident[]
+  plans       RecoveryPlan[] @relation("PlanVehicle")
+  assignments Assignment[]
+}
+
+model Driver {
+  id            String         @id
+  userId        String         @unique
+  vehicleId     String         @unique
+  dutyStatus    String
+  lastKnownLat  Float
+  lastKnownLng  Float
+  user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  shipments     Shipment[]     @relation("ShipmentDriver")
+  plans         RecoveryPlan[] @relation("PlanDriver")
+  assignments   Assignment[]
+}
+
+model Shipment {
+  id                String               @id
+  trackingCode      String               @unique
+  customerId        String
+  assignedDriverId  String
+  assignedVehicleId String
+  priority          String
+  promisedAt        DateTime
+  etaAt             DateTime
+  status            String
+  units             Int
+  proofOfDeliveryRef String?
+  customer          User                 @relation("ShipmentCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  assignedDriver    Driver               @relation("ShipmentDriver", fields: [assignedDriverId], references: [id], onDelete: Restrict)
+  assignedVehicle   Vehicle              @relation("ShipmentVehicle", fields: [assignedVehicleId], references: [id], onDelete: Restrict)
+  incidentLinks     IncidentShipment[]
+  assignments       Assignment[]
+  events            BusinessEvent[]
+  notifications     CustomerNotification[]
+  targetPlans       RecoveryPlan[]       @relation("PlanShipment")
+
+  @@index([assignedDriverId, status])
+  @@index([assignedVehicleId, status])
+}
+
+model Incident {
+  id              String             @id
+  type            String
+  vehicleId       String
+  reporterId      String
+  severity        String
+  status          String
+  summary         String
+  version         Int                @default(1)
+  createdAt       DateTime
+  resolvedAt      DateTime?
+  currentPlanId   String?
+  vehicle         Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  reporter        User               @relation("IncidentReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  shipmentLinks   IncidentShipment[]
+  plans           RecoveryPlan[]
+  assignments     Assignment[]
+  events          BusinessEvent[]
+  notifications   CustomerNotification[]
+
+  @@index([status, createdAt])
+  @@index([vehicleId, status])
+}
+
+model IncidentShipment {
+  incidentId    String
+  shipmentId    String
+  originalStatus String
+  incident      Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  shipment      Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@id([incidentId, shipmentId])
+  @@index([shipmentId])
+}
+
+model RecoveryPlan {
+  id                    String    @id
+  incidentId            String
+  version               Int
+  targetShipmentId      String
+  proposedVehicleId     String
+  proposedDriverId      String
+  newEtaAt              DateTime
+  rationale             String
+  feasibilitySnapshot   String
+  hash                  String
+  status                String
+  incident              Incident  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  targetShipment        Shipment  @relation("PlanShipment", fields: [targetShipmentId], references: [id], onDelete: Restrict)
+  proposedVehicle       Vehicle   @relation("PlanVehicle", fields: [proposedVehicleId], references: [id], onDelete: Restrict)
+  proposedDriver        Driver    @relation("PlanDriver", fields: [proposedDriverId], references: [id], onDelete: Restrict)
+  approval              Approval?
+
+  @@unique([incidentId, version])
+  @@index([incidentId, status])
+}
+
+model Approval {
+  id             String       @id
+  planId         String       @unique
+  planHash       String
+  status         String
+  approvedBy     String?
+  approvedAt     DateTime?
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  decisionReason String?
+  plan           RecoveryPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id         String    @id
+  shipmentId String
+  driverId   String
+  vehicleId  String
+  incidentId String?
+  status     String
+  shipment   Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+  driver     Driver    @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  vehicle    Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  incident   Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  @@index([shipmentId, status])
+  @@index([driverId, status])
+}
+
+model BusinessEvent {
+  id             String   @id
+  caseId         String
+  shipmentId     String?
+  actorType      String
+  actorId        String
+  type           String
+  visibility     String
+  payload        String
+  createdAt      DateTime
+  correlationId  String
+  idempotencyKey String?
+  incident       Incident @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  shipment       Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+
+  @@index([caseId, createdAt])
+  @@index([shipmentId, visibility])
+  @@index([idempotencyKey])
+}
+
+model CustomerNotification {
+  id        String    @id
+  shipmentId String
+  caseId    String
+  channel   String
+  content   String
+  status    String
+  createdAt DateTime
+  shipment  Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  incident  Incident @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId, status])
+}
+
+model IdempotencyRecord {
+  actor     String
+  action    String
+  key       String
+  result    String
+  createdAt DateTime
+
+  @@id([actor, action, key])
+}
