@@ -1,13 +1,13 @@
-import type { DemoScenario, Shipment } from "../types/contracts.ts";
+import type { DeepReadonly, DemoScenario, Shipment } from "../types/contracts.ts";
 
 export const SEEDED_AT = "2026-11-06T17:09:00.000Z";
 
-function deepFreeze<T>(value: T): T {
+function deepFreeze<T>(value: T): DeepReadonly<T> {
   if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
     Object.freeze(value);
     Object.values(value as Record<string, unknown>).forEach(deepFreeze);
   }
-  return value;
+  return value as DeepReadonly<T>;
 }
 
 const affectedShipments = [
@@ -198,12 +198,12 @@ const scenario = {
  * Immutable, synthetic baseline for contract tests and later persistence seeding.
  * It is not a live database or a claim of a completed Switch integration.
  */
-export const DEMO_SCENARIO = deepFreeze(scenario);
+export const DEMO_SCENARIO: DeepReadonly<typeof scenario> = deepFreeze(scenario);
 
 export function getAffectedShipments(
   fixture: DemoScenario,
   incidentId: string,
-): readonly Shipment[] {
+): readonly Readonly<Shipment>[] {
   const shipmentIds = new Set(
     fixture.incidentShipments
       .filter((relation) => relation.incidentId === incidentId)

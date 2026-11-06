@@ -50,6 +50,12 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
+export type DeepReadonly<T> = T extends readonly (infer Element)[]
+  ? readonly DeepReadonly<Element>[]
+  : T extends object
+    ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+    : T;
+
 export interface User {
   id: string;
   displayName: string;
