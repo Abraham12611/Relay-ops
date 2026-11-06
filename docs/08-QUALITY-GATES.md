@@ -8,7 +8,7 @@
 - Resilience: refresh, retry, disconnected Switch, duplicate message, declined backup.
 
 ## Golden-path acceptance (P0)
-- [ ] Driver submits breakdown for VAN-014 once and gets INC-1042.
+- [ ] A clean reset has no incident; the authenticated driver submits breakdown for VAN-014 once and creates INC-1042.
 - [ ] Six affected shipments are linked and CRITICAL MED-2048 prioritized.
 - [ ] Switch-connected agent in Mattermost reads INC-1042 using business API; result agrees with DB.
 - [ ] Agent proposes VAN-009 after verifiable capacity/conflict validation.
@@ -47,15 +47,16 @@
 The repository provides these checks (Node.js 22.6+):
 
 - `npm ci` — install lockfile-pinned dependencies.
-- `npm test` — migrate an isolated SQLite test database and run domain, API-persistence, and agent-adapter tests; live API contract cases skip unless explicitly enabled.
+- `npm test` — migrate an isolated SQLite test database and run domain, API-persistence, agent-adapter, and smoke-helper tests; live API contract cases skip unless explicitly enabled.
 - `npm run typecheck` — generate the Prisma client and type-check the app, services, and tests.
 - `npm run build` — generate Prisma client and build the Next.js App Router app.
-- `npm run seed` / `npm run reset:demo` — restore the deterministic pre-incident baseline in the local database.
+- `npm run seed` / `npm run reset:demo` — restore the deterministic pre-incident baseline in the local database; `reset:demo` remains the Prisma CLI path.
+- `npm run reset:service` — use the protected HTTP reset endpoint for an isolated running demo service.
 - `npm run smoke:foundation` — verify the local persisted pre-incident fixture.
 - `npm run test:integration` — exercise the optional live API contract suite; requires the service URL and role-scoped credentials.
-- `npm run smoke` — run the live golden path; requires the full role set and downstream workflow endpoints.
+- `npm run smoke` — run the live golden path; it starts by resetting the configured service through the protected HTTP endpoint and requires downstream workflow endpoints.
 
-The local checks cover foundation APIs, allowlisted driver sessions/jobs, and persistence, but do not validate customer tracking, the full approval/execution workflow, UI role flows, or Switch integration. Live integration tests are not verified until run against an isolated service with credentials. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for environment requirements and the two-run manual checklist.
+The smoke helper reports the driver's breakdown to create INC-1042 before incident-specific checks and exercises E06 approval, execution, driver lifecycle, and customer tracking. E01 (#12), agent tooling (#18), and E06 (#19) are integrated into `develop`. The opt-in API integration suite and two independent smoke invocations have passed against an isolated local Next.js service and disposable SQLite database; these establish local HTTP workflow behavior only, not a deployed service, role-specific UI rehearsal, or authentic Switch/Mattermost exchange. No external RelayOps URL/credentials or real Switch proof were verified. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for the exact verification boundary, environment requirements, and six-step demo checklist.
 
 `npm run dev` starts the Next.js app on port 3000 by default. `npm run lint` is not configured yet.
 

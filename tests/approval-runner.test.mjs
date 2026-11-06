@@ -14,13 +14,19 @@ test("live approval runner sends the exact plan ID, hash, and version", async ()
     const url = new URL(input);
     requests.push({ url, init });
     if (url.pathname === "/api/v1/demo/session") {
-      return new Response("{}", {
+      return new Response(JSON.stringify({
+        data: { role: "DISPATCHER", expiresInSeconds: 28800 },
+        correlationId: "session-correlation",
+      }), {
         status: 201,
-        headers: { "set-cookie": "relayops_demo_session=test; Path=/; HttpOnly; SameSite=Lax" },
+        headers: {
+          "content-type": "application/json",
+          "set-cookie": "relayops_demo_session=test; Path=/; HttpOnly; SameSite=Lax",
+        },
       });
     }
     if (url.pathname === "/api/v1/recovery/approvals") {
-      return new Response(JSON.stringify({ data: { id: "APR-1" } }), {
+      return new Response(JSON.stringify({ data: { id: "APR-1" }, correlationId: "approval-correlation" }), {
         status: 201,
         headers: { "content-type": "application/json" },
       });

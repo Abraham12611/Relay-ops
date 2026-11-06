@@ -8,6 +8,7 @@ Show one uninterrupted incident from actual human input to genuine Switch-mediat
 - [ ] Open /demo and confirm API health plus the server-reported scenario stage; the launchpad links customer tracking, driver, /ops and the exception queue.
 - [ ] If rehearsing with concurrent roles, use separate browser profiles: dispatcher/customer persona selection issues the signed HttpOnly demo cookie for that profile, and every tab in the same profile shares it. The driver page retains its DRV-014 / DRV-009 selector.
 - [ ] Browser scenario reset is available only with DEMO_MODE=true on a configured non-production server. Type RESET SCENARIO in the confirmation dialog and verify a freshly fetched PRE-INCIDENT state. Never point the browser reset at production or a shared database; for an isolated local database, use `npm run reset:demo`.
+- [ ] For the isolated HTTP integration harness, use `npm run reset:service`; verify no INC-1042, VAN-014 AVAILABLE, and six shipments IN_TRANSIT before reporting the breakdown.
 - [ ] Mattermost and Switch Console running; connected agent responds in a real room.
 - [ ] Agent service can reach `APP_BASE_URL` and secret is not exposed in browser.
 - [ ] Endpoints health checks green; `INC-1042` is absent after reset and becomes open only after the driver reports the breakdown.
@@ -33,7 +34,7 @@ If demo is over 5 minutes, trim navigation, **not** the actual human-agent excha
 
 ## Live judge operator sequence
 1. Open /demo. Confirm health and scenario status. If this run uses an isolated local database, choose Reset scenario, type RESET SCENARIO, and wait for a fresh PRE-INCIDENT status. Select the dispatcher persona and use Open operations dashboard; use a separate browser profile for customer and driver roles. Open /track/TRK-2048. Browser reset is disabled in production; never use it on a shared or production database.
-2. In driver portal as DRV-014 report BREAKDOWN (reason: engine failure). Note INC-1042.
+2. In driver portal as DRV-014 report BREAKDOWN (summary: engine failure). Confirm incident INC-1042 is created by this action before opening its case page.
 3. Open real Mattermost operations room: `@relay-recovery investigate INC-1042, tell me affected shipments and recommend a feasible backup; do not execute`. Capture agent calling `getIncident` and `simulateReassignment`.
 4. Review plan in /ops/exceptions/INC-1042. Challenge an assumption in room; agent answers using actual data. Approve exact plan via dashboard, NOT only chat text.
 5. In room: `@relay-recovery execute the approved recovery plan for INC-1042 and report assignment ID`. Verify actual tool receipt.

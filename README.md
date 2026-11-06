@@ -51,28 +51,29 @@ npm run reset:demo
 npm run dev
 ```
 
-The SQLite URL in `.env` is relative to `prisma/schema.prisma`; `file:../relayops.db` stores the database at the repository root. `npm run reset:demo` is destructive and restores the deterministic **PRE-INCIDENT** state: `VAN-014` is operational, its six shipments are `IN_TRANSIT`, and `INC-1042` does not exist. Seven customer-visible shipment-registration events are seeded at the same fixed timestamp; they do not create an incident. A driver breakdown report creates `INC-1042`, marks the vehicle broken, and moves those shipments to `AT_RISK`.
+The SQLite URL in `.env` is relative to `prisma/schema.prisma`; `file:../relayops.db` stores the database at the repository root. `npm run reset:demo` is the local Prisma CLI reset and restores the deterministic **PRE-INCIDENT** state: `VAN-014` is operational, its six shipments are `IN_TRANSIT`, and `INC-1042` does not exist. Seven customer-visible shipment-registration events are seeded at the same fixed timestamp; they do not create an incident. A driver breakdown report creates `INC-1042`, marks the vehicle broken, and moves those shipments to `AT_RISK`.
 
 Useful checks and data commands:
 
 ```bash
 npm ci
-npm test                 # isolated SQLite DB plus domain/API tests; live contracts skip without integration setup
+npm test                 # isolated SQLite DB plus domain/API and smoke-helper checks; live contracts skip unless opted in
 npm run typecheck
 npm run build
 npm run seed              # migrate and seed/reset the local demo baseline
-npm run reset:demo        # destructive local reset to PRE-INCIDENT
+npm run reset:demo        # destructive local Prisma reset to PRE-INCIDENT
+npm run reset:service     # protected HTTP reset for an isolated running demo service
 npm run smoke:foundation # verify the local persisted baseline
-npm run test:integration       # optional live API suite; requires service URL and role credentials
+npm run test:integration        # opt-in live API contract suite; requires an isolated service and role credentials
 npm run test:integration:expiry # opt-in live expiry probe; waits for the 15-minute approval TTL
-npm run smoke                  # live golden path; requires a configured service and all role credentials; does not prove Switch connectivity
+npm run smoke                   # full live golden path; requires a configured service and role credentials
 ```
 
-The live integration commands reset the configured demo service; use an isolated test instance and its role credentials. The expiry probe is opt-in because it waits for the real approval TTL.
+The live reset/smoke helpers use the protected `POST /api/v1/demo/reset` endpoint and verify service state; they do not change the local Prisma CLI reset semantics. Use only an isolated test service for integration commands because they reset the configured service. The expiry probe is opt-in because it waits for the real approval TTL.
 
 Demo sessions are issued by `POST /api/v1/demo/session` with `x-demo-operator-key`; the same-origin browser bridge at `POST /api/demo/session` keeps that key server-side. Driver sessions may select only `DRV-014` or `DRV-009`; the server signs the mapped user identity into an HTTP-only cookie. Agent endpoints use `x-agent-api-key` with separate read, proposal, and execution keys. Never expose these keys to browser code. All responses use `{ data, correlationId }` or the shared `ApiErrorResponse` envelope; valid `X-Request-ID` values are correlated on reads and writes.
 
-Implemented routes include demo session/state/reset, incident create/list/detail/affected shipments/events, shipment detail, available vehicles, recovery simulation/proposals, dispatcher approval decisions and reads, transactional recovery execution, driver jobs and assignment accept/pickup/deliver, and public customer tracking. Driver actions and recovery transitions persist customer-safe updates and auditable events; incidents close only when every linked shipment is terminal. `npm test` exercises these handlers against an isolated SQLite database; live API integration cases remain skipped without a configured service and credentials. The live golden-path tooling in `docs/DEMO-REHEARSAL.md` still requires a configured service and must not be taken as evidence of a real Switch/Mattermost connection.
+Implemented routes include demo session/state/reset, incident create/list/detail/affected shipments/events, shipment detail, available vehicles, recovery simulation/proposals, dispatcher approval decisions and reads, transactional recovery execution, driver jobs and assignment accept/pickup/deliver, and public customer tracking. Driver actions and recovery transitions persist customer-safe updates and auditable events; incidents close only when every linked shipment is terminal. `npm test` exercises these handlers against an isolated SQLite database; live API integration cases remain skipped without a configured service and credentials. See [the demo rehearsal gate](docs/DEMO-REHEARSAL.md) for the API smoke and customer-to-driver-to-dispatcher checklist; neither local tests nor API adapter checks prove a real Switch/Mattermost connection.
 
 ## Progress
 
