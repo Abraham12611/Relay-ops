@@ -1,0 +1,467 @@
+.relayops-driver {
+  --driver-ink: #142033;
+  --driver-muted: #42536a;
+  --driver-border: #cbd5e1;
+  --driver-surface: #ffffff;
+  --driver-page: #f4f7fb;
+  --driver-blue: #0757b8;
+  --driver-blue-hover: #06458f;
+  --driver-blue-soft: #e8f1ff;
+  --driver-green: #17643b;
+  --driver-green-soft: #e8f6ed;
+  --driver-amber: #754500;
+  --driver-amber-soft: #fff3d9;
+  --driver-red: #992b2b;
+  --driver-red-soft: #fff0f0;
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 1.25rem 1rem 2.5rem;
+  color: var(--driver-ink);
+  background: var(--driver-page);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.relayops-driver *,
+.relayops-driver *::before,
+.relayops-driver *::after {
+  box-sizing: inherit;
+}
+
+.relayops-driver a {
+  color: var(--driver-blue);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.relayops-driver a:hover {
+  color: var(--driver-blue-hover);
+}
+
+.relayops-driver :focus-visible {
+  outline: 3px solid #ad5c00;
+  outline-offset: 3px;
+  border-radius: 0.2rem;
+}
+
+.relayops-driver .driver-page-heading,
+.relayops-driver .driver-toolbar,
+.relayops-driver .driver-card-list,
+.relayops-driver .driver-detail-card,
+.relayops-driver .driver-action-card,
+.relayops-driver .driver-empty,
+.relayops-driver .driver-form,
+.relayops-driver .driver-footer-link,
+.relayops-driver .driver-link-action,
+.relayops-driver .driver-section-label,
+.relayops-driver .driver-breadcrumb {
+  width: min(100%, 46rem);
+  margin-inline: auto;
+}
+
+.relayops-driver .driver-page-heading {
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.relayops-driver .driver-page-heading h1 {
+  margin: 0.15rem 0 0.35rem;
+  font-size: clamp(1.65rem, 7vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.relayops-driver .driver-page-heading > p:last-child {
+  max-width: 37rem;
+  margin: 0;
+  color: var(--driver-muted);
+}
+
+.relayops-driver .driver-kicker,
+.relayops-driver .driver-eyebrow,
+.relayops-driver .driver-section-label {
+  color: var(--driver-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.relayops-driver .driver-kicker {
+  margin: 0;
+}
+
+.relayops-driver .driver-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+  margin-bottom: 1.1rem;
+}
+
+.relayops-driver .driver-notice {
+  width: min(100%, 46rem);
+  margin: 0 auto 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--driver-border);
+  border-radius: 0.75rem;
+  color: var(--driver-ink);
+  background: var(--driver-surface);
+  overflow-wrap: anywhere;
+}
+
+.relayops-driver .driver-toolbar .driver-notice {
+  width: 100%;
+  margin: 0;
+}
+
+.relayops-driver .driver-notice[data-kind="loading"],
+.relayops-driver .driver-notice[data-kind="info"] {
+  border-color: #a9c6e8;
+  background: var(--driver-blue-soft);
+}
+
+.relayops-driver .driver-notice[data-kind="success"] {
+  border-color: #8fc6a3;
+  color: #104b2b;
+  background: var(--driver-green-soft);
+}
+
+.relayops-driver .driver-notice[data-kind="stale"],
+.relayops-driver .driver-notice[data-kind="duplicate"] {
+  border-color: #e5bd73;
+  color: #623a00;
+  background: var(--driver-amber-soft);
+}
+
+.relayops-driver .driver-notice[data-kind="validation"],
+.relayops-driver .driver-notice[data-kind="permission"],
+.relayops-driver .driver-notice[data-kind="network"],
+.relayops-driver .driver-notice[data-kind="api"] {
+  border-color: #e0a5a5;
+  color: #762020;
+  background: var(--driver-red-soft);
+}
+
+.relayops-driver .driver-button {
+  display: inline-flex;
+  min-height: 2.85rem;
+  justify-content: center;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--driver-border);
+  border-radius: 0.65rem;
+  color: var(--driver-ink);
+  background: var(--driver-surface);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.relayops-driver .driver-button:hover:not(:disabled) {
+  border-color: #8494a8;
+  background: #f7f9fc;
+}
+
+.relayops-driver .driver-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.relayops-driver .driver-button--primary {
+  border-color: var(--driver-blue);
+  color: #ffffff;
+  background: var(--driver-blue);
+}
+
+.relayops-driver .driver-button--primary:hover:not(:disabled) {
+  border-color: var(--driver-blue-hover);
+  color: #ffffff;
+  background: var(--driver-blue-hover);
+}
+
+.relayops-driver .driver-button--secondary {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.relayops-driver .driver-button--quiet {
+  align-self: flex-start;
+  color: var(--driver-blue);
+  border-color: #9bbbe0;
+}
+
+.relayops-driver .driver-card-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.relayops-driver .driver-card,
+.relayops-driver .driver-detail-card,
+.relayops-driver .driver-action-card,
+.relayops-driver .driver-empty {
+  padding: 1rem;
+  border: 1px solid var(--driver-border);
+  border-radius: 0.9rem;
+  background: var(--driver-surface);
+  box-shadow: 0 3px 12px rgb(20 32 51 / 5%);
+}
+
+.relayops-driver .driver-card__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.relayops-driver .driver-eyebrow {
+  margin: 0;
+  letter-spacing: 0.05em;
+}
+
+.relayops-driver .driver-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.7rem;
+  padding: 0.12rem 0.6rem;
+  border: 1px solid #abc3df;
+  border-radius: 999px;
+  color: #143f70;
+  background: #eef5ff;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.relayops-driver .driver-card h2,
+.relayops-driver .driver-detail-card h2,
+.relayops-driver .driver-action-card h2,
+.relayops-driver .driver-empty h2 {
+  margin: 0.6rem 0 0.85rem;
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+.relayops-driver .driver-card h2 a {
+  color: var(--driver-ink);
+  text-decoration: none;
+}
+
+.relayops-driver .driver-card h2 a:hover {
+  color: var(--driver-blue);
+  text-decoration: underline;
+}
+
+.relayops-driver .driver-arrow {
+  color: var(--driver-blue);
+}
+
+.relayops-driver .driver-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem 0.65rem;
+  margin: 0;
+}
+
+.relayops-driver .driver-facts > div {
+  min-width: 0;
+}
+
+.relayops-driver .driver-facts dt {
+  color: var(--driver-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.relayops-driver .driver-facts dd {
+  margin: 0.12rem 0 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.relayops-driver .driver-section-label {
+  margin-top: 1.4rem;
+  margin-bottom: 0.55rem;
+}
+
+.relayops-driver .driver-empty {
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+.relayops-driver .driver-empty p,
+.relayops-driver .driver-action-card p {
+  margin: 0.25rem 0 0;
+  color: var(--driver-muted);
+}
+
+.relayops-driver .driver-empty--success {
+  border-color: #8fc6a3;
+  background: var(--driver-green-soft);
+}
+
+.relayops-driver .driver-empty__mark {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--driver-green);
+  font-weight: 800;
+}
+
+.relayops-driver .driver-link-action {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid #aac3e0;
+  border-radius: 0.7rem;
+  background: var(--driver-blue-soft);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.relayops-driver .driver-form,
+.relayops-driver .driver-action-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.relayops-driver .driver-form label {
+  margin-top: 0.35rem;
+  font-weight: 700;
+}
+
+.relayops-driver .driver-form input,
+.relayops-driver .driver-form textarea {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.72rem 0.8rem;
+  border: 1px solid #7d8da1;
+  border-radius: 0.55rem;
+  color: var(--driver-ink);
+  background: #ffffff;
+  font: inherit;
+}
+
+.relayops-driver .driver-form textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.relayops-driver .driver-form input::placeholder,
+.relayops-driver .driver-form textarea::placeholder {
+  color: #596a80;
+  opacity: 1;
+}
+
+.relayops-driver .driver-form small,
+.relayops-driver .driver-form-hint {
+  margin-top: -0.45rem;
+  color: var(--driver-muted);
+}
+
+.relayops-driver .driver-form-hint {
+  margin-bottom: 0.1rem;
+  font-size: 0.9rem;
+}
+
+.relayops-driver .driver-form > button {
+  width: 100%;
+}
+
+.relayops-driver .driver-delivery-form {
+  margin-bottom: 1rem;
+}
+
+.relayops-driver .driver-detail-card {
+  margin-bottom: 1rem;
+}
+
+.relayops-driver .driver-detail-card h2 {
+  margin-top: 1rem;
+}
+
+.relayops-driver .driver-facts--grid {
+  grid-template-columns: 1fr;
+  gap: 0.8rem;
+}
+
+.relayops-driver .driver-action-card {
+  margin-bottom: 1rem;
+}
+
+.relayops-driver .driver-breadcrumb {
+  margin-top: 0.25rem;
+  margin-bottom: 0.9rem;
+  font-weight: 700;
+}
+
+.relayops-driver .driver-footer-link {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-weight: 650;
+}
+
+.relayops-driver .driver-skeleton {
+  width: min(100%, 46rem);
+  height: 8rem;
+  margin: 0 auto;
+  border: 1px solid var(--driver-border);
+  border-radius: 0.9rem;
+  background: #e8edf4;
+}
+
+@media (min-width: 40rem) {
+  .relayops-driver {
+    padding: 2rem 1.5rem 3rem;
+  }
+
+  .relayops-driver .driver-toolbar {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .relayops-driver .driver-toolbar .driver-notice {
+    flex: 1;
+  }
+
+  .relayops-driver .driver-card,
+  .relayops-driver .driver-detail-card,
+  .relayops-driver .driver-action-card,
+  .relayops-driver .driver-empty {
+    padding: 1.25rem;
+  }
+
+  .relayops-driver .driver-facts--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .relayops-driver .driver-action-card {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .relayops-driver .driver-delivery-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .relayops-driver .driver-delivery-form > div {
+    grid-column: 1 / -1;
+  }
+
+  .relayops-driver .driver-delivery-form > label,
+  .relayops-driver .driver-delivery-form > input,
+  .relayops-driver .driver-delivery-form > button {
+    align-self: end;
+  }
+}

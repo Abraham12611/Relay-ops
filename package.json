@@ -11,12 +11,15 @@
     "build": "prisma generate && next build",
     "start": "prisma generate && next start --hostname 0.0.0.0",
     "test": "prisma generate && cross-env DATABASE_URL=file:../relayops-test.db prisma migrate deploy && cross-env DATABASE_URL=file:../relayops-test.db node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/*.test.mjs",
+    "test:integration": "node scripts/run-integration-tests.mjs",
     "typecheck": "prisma generate && tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "seed": "prisma generate && prisma migrate deploy && prisma db seed",
     "reset:demo": "prisma generate && prisma migrate deploy && tsx scripts/reset-demo.ts",
-    "smoke": "prisma generate && tsx scripts/smoke.ts"
+    "reset:service": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/reset-demo.mjs",
+    "smoke": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/golden-path-smoke.mjs",
+    "smoke:foundation": "prisma generate && tsx scripts/smoke.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

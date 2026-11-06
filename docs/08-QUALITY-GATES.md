@@ -46,14 +46,16 @@
 ## Current foundation commands
 The repository provides these checks (Node.js 22.6+):
 
-- `npm install` — install the Next.js, Prisma, and TypeScript dependencies.
-- `npm test` — migrate an isolated SQLite test database and run domain plus API persistence/auth tests.
+- `npm ci` — install lockfile-pinned dependencies.
+- `npm test` — migrate an isolated SQLite test database and run domain, API-persistence, and agent-adapter tests; live API contract cases skip unless explicitly enabled.
 - `npm run typecheck` — generate the Prisma client and type-check the app, services, and tests.
 - `npm run build` — generate Prisma client and build the Next.js App Router app.
-- `npm run reset:demo` / `npm run seed` — restore the deterministic pre-incident baseline.
-- `npm run smoke` — assert the persisted pre-incident fixture.
+- `npm run seed` / `npm run reset:demo` — restore the deterministic pre-incident baseline in the local database.
+- `npm run smoke:foundation` — verify the local persisted pre-incident fixture.
+- `npm run test:integration` — exercise the optional live API contract suite; requires the service URL and role-scoped credentials.
+- `npm run smoke` — run the live golden path; requires the full role set and downstream workflow endpoints.
 
-These checks cover the foundation APIs but do not validate the full approval/execution workflow, UI role flows, or Switch integration.
+The local checks cover the foundation APIs but do not validate the full approval/execution workflow, UI role flows, or Switch integration. Live integration tests are not verified until run against an isolated service with credentials. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for environment requirements and the two-run manual checklist.
 
 `npm run dev` starts the Next.js app on port 3000 by default. `npm run lint` is not configured yet.
 

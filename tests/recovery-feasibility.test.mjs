@@ -86,6 +86,18 @@ test("broken vehicles are not eligible targets", () => {
   assert.ok(result.conflicts.includes("Vehicle VAN-014 is not available."));
 });
 
+test("a shipment that exactly fills remaining capacity remains eligible", () => {
+  const fixture = {
+    ...recoveryScenario,
+    vehicles: DEMO_SCENARIO.vehicles.map((vehicle) =>
+      vehicle.id === "VAN-009" ? { ...vehicle, capacityUnits: 10, occupiedUnits: 8 } : vehicle,
+    ),
+  };
+  const result = simulateReassignment(fixture, recoveryInput);
+
+  assert.deepEqual(result, { eligible: true, capacityOk: true, conflicts: [] });
+});
+
 test("over-capacity assignments are rejected", () => {
   const fixture = {
     ...recoveryScenario,
@@ -122,6 +134,7 @@ test("a second active critical shipment on the target vehicle is a conflict", ()
 
 test("unknown, unrelated and mismatched inputs are rejected without writes", () => {
   const originalEventCount = recoveryScenario.events.length;
+  const originalFixture = structuredClone(recoveryScenario);
   const result = simulateReassignment(recoveryScenario, {
     incidentId: "INC-4040",
     shipmentId: "SHP-1010",
@@ -134,6 +147,20 @@ test("unknown, unrelated and mismatched inputs are rejected without writes", () 
   assert.ok(result.conflicts.includes("Shipment SHP-1010 is not affected by INC-4040."));
   assert.ok(result.conflicts.includes("Driver DRV-014 is not assigned to vehicle VAN-009."));
   assert.equal(recoveryScenario.events.length, originalEventCount);
+  assert.deepEqual(recoveryScenario, originalFixture);
+});
+
+test("unknown driver and unknown vehicle are reported independently", () => {
+  const result = simulateReassignment(recoveryScenario, {
+    ...recoveryInput,
+    targetDriverId: "DRV-404",
+    targetVehicleId: "VAN-404",
+  });
+
+  assert.equal(result.eligible, false);
+  assert.equal(result.capacityOk, false);
+  assert.ok(result.conflicts.includes("Driver DRV-404 was not found."));
+  assert.ok(result.conflicts.includes("Vehicle VAN-404 was not found."));
 });
 
 test("off-duty drivers cannot receive a recovery assignment", () => {

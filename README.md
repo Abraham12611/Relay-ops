@@ -56,17 +56,20 @@ The SQLite URL in `.env` is relative to `prisma/schema.prisma`; `file:../relayop
 Useful checks and data commands:
 
 ```bash
-npm test                 # uses a separate relayops-test.db and runs API + domain tests
+npm ci
+npm test                 # isolated SQLite DB plus domain/API tests; live contracts skip without integration setup
 npm run typecheck
 npm run build
-npm run seed              # migrate and seed/reset the demo baseline
-npm run reset:demo
-npm run smoke
+npm run seed              # migrate and seed/reset the local demo baseline
+npm run reset:demo        # destructive local reset to PRE-INCIDENT
+npm run smoke:foundation # verify the local persisted baseline
+npm run test:integration # optional live API contract suite; requires service URL and role credentials
+npm run smoke            # full live golden path; requires all roles and later workflow endpoints
 ```
 
 Demo sessions are issued by `POST /api/v1/demo/session` only with `x-demo-operator-key`; role identity is carried in a signed, HTTP-only cookie and validated server-side. Agent endpoints use `x-agent-api-key` with separate read, proposal, and execution keys. Never expose these keys to browser code. All responses use `{ data, correlationId }` or the shared `ApiErrorResponse` envelope.
 
-Implemented routes: `GET /api/v1/health`, demo session/state/reset, incident create/list/detail/affected shipments, shipment detail, available vehicles, recovery simulation, and version-checked recovery proposals. Approval lookup and recovery execution are not implemented by this foundation. API tests verify the driver report persists, duplicate requests dedupe, version conflicts are rejected, and state survives separate reads. They do not prove a Switch/Mattermost connection or the full end-to-end approval workflow.
+Implemented routes: `GET /api/v1/health`, demo session/state/reset, incident create/list/detail/affected shipments, shipment detail, available vehicles, recovery simulation, and version-checked recovery proposals. Approval lookup and recovery execution are not implemented by this foundation. API tests verify the driver report persists, duplicate requests dedupe, version conflicts are rejected, and state survives separate reads. The live golden-path tooling in `docs/DEMO-REHEARSAL.md` remains blocked on missing approval/execution and related downstream endpoints; neither local tests nor the API adapter proves a Switch/Mattermost connection.
 
 ## Progress
 
