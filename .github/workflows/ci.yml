@@ -1,0 +1,37 @@
+name: RelayOps CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: file:../relayops-ci.db
+      DEMO_MODE: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Check TypeScript
+        run: npm run typecheck
+      - name: Run unit and database tests
+        run: npm test
+      - name: Build application
+        run: npm run build
+      - name: Reset deterministic demo fixture
+        run: npm run reset:demo
+      - name: Verify pre-incident foundation
+        run: npm run smoke:foundation
+# Live HTTP / Switch/Mattermost verification requires a running demo and
+# dedicated credentials and is a separate manual release gate.
