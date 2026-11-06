@@ -1,0 +1,655 @@
+.relay-customer-tracking {
+  --rot-bg: #f4f7fb;
+  --rot-surface: #ffffff;
+  --rot-ink: #122238;
+  --rot-muted: #465a73;
+  --rot-border: #cbd6e3;
+  --rot-blue: #174ea6;
+  --rot-blue-soft: #e7f0ff;
+  --rot-amber: #7a4300;
+  --rot-amber-soft: #fff2d7;
+  --rot-green: #145b37;
+  --rot-green-soft: #e2f4e9;
+  --rot-red: #7d2525;
+  --rot-red-soft: #fff0ef;
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: clamp(1rem, 4vw, 2.75rem) clamp(1rem, 4vw, 2rem) 3rem;
+  color: var(--rot-ink);
+  background: var(--rot-bg);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.relay-customer-tracking *,
+.relay-customer-tracking *::before,
+.relay-customer-tracking *::after {
+  box-sizing: border-box;
+}
+
+.relay-customer-tracking .rot-header,
+.relay-customer-tracking .rot-content {
+  width: min(100%, 58rem);
+  margin-inline: auto;
+}
+
+.relay-customer-tracking .rot-header {
+  padding-bottom: 1.5rem;
+}
+
+.relay-customer-tracking .rot-brand-row,
+.relay-customer-tracking .rot-header-controls,
+.relay-customer-tracking .rot-summary-top,
+.relay-customer-tracking .rot-history-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.relay-customer-tracking .rot-brand-row {
+  margin-bottom: 1.4rem;
+}
+
+.relay-customer-tracking .rot-brand {
+  color: var(--rot-ink);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.relay-customer-tracking .rot-header-label {
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--rot-border);
+  color: var(--rot-muted);
+  font-size: 0.875rem;
+}
+
+.relay-customer-tracking .rot-heading {
+  max-width: 42rem;
+  margin: 0;
+  font-size: clamp(1.7rem, 5vw, 2.2rem);
+  font-weight: 760;
+  letter-spacing: -0.045em;
+  line-height: 1.2;
+}
+
+.relay-customer-tracking .rot-code {
+  display: inline-block;
+  margin-left: 0.18em;
+  color: var(--rot-blue);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.relay-customer-tracking .rot-intro {
+  margin: 0.7rem 0 1rem;
+  color: var(--rot-muted);
+}
+
+.relay-customer-tracking .rot-header-controls {
+  justify-content: flex-start;
+}
+
+.relay-customer-tracking .rot-refresh {
+  min-height: 2.75rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid #93acd0;
+  border-radius: 0.65rem;
+  color: var(--rot-blue);
+  background: var(--rot-surface);
+  font: inherit;
+  font-size: 0.93rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.relay-customer-tracking .rot-refresh:hover:not(:disabled) {
+  background: var(--rot-blue-soft);
+}
+
+.relay-customer-tracking .rot-refresh:focus-visible {
+  outline: 3px solid #1a69d2;
+  outline-offset: 3px;
+}
+
+.relay-customer-tracking .rot-refresh:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.relay-customer-tracking .rot-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.relay-customer-tracking .rot-state,
+.relay-customer-tracking .rot-stale-banner,
+.relay-customer-tracking .rot-summary,
+.relay-customer-tracking .rot-section,
+.relay-customer-tracking .rot-latest,
+.relay-customer-tracking .rot-delivery-confirmation {
+  border: 1px solid var(--rot-border);
+  border-radius: 0.9rem;
+  background: var(--rot-surface);
+  box-shadow: 0 2px 8px rgb(20 38 66 / 4%);
+}
+
+.relay-customer-tracking .rot-state {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  padding: clamp(1.25rem, 5vw, 2rem);
+}
+
+.relay-customer-tracking .rot-state-icon {
+  color: var(--rot-blue);
+  font-size: 1.65rem;
+  font-weight: 800;
+}
+
+.relay-customer-tracking .rot-state-title,
+.relay-customer-tracking .rot-state-copy,
+.relay-customer-tracking .rot-reference,
+.relay-customer-tracking .rot-section-heading,
+.relay-customer-tracking .rot-latest-title,
+.relay-customer-tracking .rot-latest-message,
+.relay-customer-tracking .rot-history-title,
+.relay-customer-tracking .rot-history-message,
+.relay-customer-tracking .rot-notice-message {
+  margin: 0;
+}
+
+.relay-customer-tracking .rot-state-title {
+  font-size: 1.2rem;
+}
+
+.relay-customer-tracking .rot-state-copy {
+  max-width: 42rem;
+  color: var(--rot-muted);
+}
+
+.relay-customer-tracking .rot-reference {
+  margin-top: 0.55rem;
+  color: var(--rot-muted);
+  font-size: 0.82rem;
+}
+
+.relay-customer-tracking .rot-reference code {
+  color: var(--rot-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.relay-customer-tracking .rot-state-error {
+  border-color: #d6a6a2;
+  background: var(--rot-red-soft);
+}
+
+.relay-customer-tracking .rot-tracking-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.relay-customer-tracking .rot-refreshing,
+.relay-customer-tracking .rot-stale-banner {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  color: var(--rot-amber);
+  background: var(--rot-amber-soft);
+}
+
+.relay-customer-tracking .rot-refreshing {
+  border-radius: 0.7rem;
+  font-weight: 650;
+}
+
+.relay-customer-tracking .rot-stale-banner strong {
+  display: block;
+}
+
+.relay-customer-tracking .rot-stale-banner p:not(.rot-reference) {
+  margin: 0.25rem 0 0;
+}
+
+.relay-customer-tracking .rot-stale-banner .rot-reference {
+  color: var(--rot-amber);
+}
+
+.relay-customer-tracking .rot-summary,
+.relay-customer-tracking .rot-section,
+.relay-customer-tracking .rot-latest {
+  padding: clamp(1rem, 4vw, 1.45rem);
+}
+
+.relay-customer-tracking .rot-summary-top {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.relay-customer-tracking .rot-status-badge,
+.relay-customer-tracking .rot-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.8rem;
+  margin: 0;
+  padding: 0.2rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.relay-customer-tracking .rot-status-badge.is-neutral {
+  color: var(--rot-blue);
+  background: var(--rot-blue-soft);
+}
+
+.relay-customer-tracking .rot-status-badge.is-warning {
+  color: var(--rot-amber);
+  background: var(--rot-amber-soft);
+}
+
+.relay-customer-tracking .rot-status-badge.is-success {
+  color: var(--rot-green);
+  background: var(--rot-green-soft);
+}
+
+.relay-customer-tracking .rot-status-icon {
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.relay-customer-tracking .rot-priority {
+  border: 1px solid var(--rot-border);
+  color: var(--rot-muted);
+  background: var(--rot-bg);
+}
+
+.relay-customer-tracking .rot-status-heading {
+  margin: 0.65rem 0 0;
+  font-size: clamp(1.45rem, 4vw, 1.8rem);
+  font-weight: 760;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.relay-customer-tracking .rot-updated,
+.relay-customer-tracking .rot-freshness,
+.relay-customer-tracking .rot-eta-disclaimer,
+.relay-customer-tracking .rot-history-time,
+.relay-customer-tracking .rot-notice-time,
+.relay-customer-tracking .rot-delivered-time {
+  color: var(--rot-muted);
+  font-size: 0.84rem;
+}
+
+.relay-customer-tracking .rot-updated {
+  margin: 0.5rem 0 0;
+}
+
+.relay-customer-tracking .rot-section-heading {
+  font-size: 1.08rem;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+
+.relay-customer-tracking .rot-eta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.relay-customer-tracking .rot-eta-item {
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--rot-border);
+  border-radius: 0.7rem;
+  background: var(--rot-bg);
+}
+
+.relay-customer-tracking .rot-current-eta {
+  border-color: #94afd5;
+  background: var(--rot-blue-soft);
+}
+
+.relay-customer-tracking .rot-eta-label {
+  color: var(--rot-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.relay-customer-tracking .rot-eta-time {
+  font-size: clamp(0.94rem, 3vw, 1.08rem);
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.relay-customer-tracking .rot-revised-badge {
+  width: fit-content;
+  margin-top: 0.15rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 99px;
+  color: var(--rot-blue);
+  background: var(--rot-surface);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.relay-customer-tracking .rot-eta-disclaimer {
+  margin: 0.8rem 0 0;
+}
+
+.relay-customer-tracking .rot-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 1.15rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.relay-customer-tracking .rot-step {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.15rem 0.1rem;
+  color: var(--rot-muted);
+  text-align: center;
+}
+
+.relay-customer-tracking .rot-step:not(:last-child)::after {
+  position: absolute;
+  top: 0.8rem;
+  left: calc(50% + 1rem);
+  width: calc(100% - 1.8rem);
+  height: 2px;
+  background: var(--rot-border);
+  content: "";
+}
+
+.relay-customer-tracking .rot-step.is-complete:not(:last-child)::after {
+  background: var(--rot-blue);
+}
+
+.relay-customer-tracking .rot-step-marker {
+  z-index: 1;
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 2px solid var(--rot-border);
+  border-radius: 50%;
+  color: var(--rot-muted);
+  background: var(--rot-surface);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.relay-customer-tracking .rot-step.is-complete .rot-step-marker {
+  border-color: var(--rot-blue);
+  color: var(--rot-blue);
+  background: var(--rot-blue-soft);
+}
+
+.relay-customer-tracking .rot-step.is-current .rot-step-marker {
+  border-color: var(--rot-blue);
+  color: #ffffff;
+  background: var(--rot-blue);
+}
+
+.relay-customer-tracking .rot-step.is-current .rot-step-label {
+  color: var(--rot-ink);
+  font-weight: 750;
+}
+
+.relay-customer-tracking .rot-step-label {
+  max-width: 7rem;
+  font-size: clamp(0.68rem, 2.8vw, 0.83rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.relay-customer-tracking .rot-latest {
+  border-left: 4px solid var(--rot-blue);
+}
+
+.relay-customer-tracking .rot-latest-title {
+  margin-top: 0.8rem;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.relay-customer-tracking .rot-latest-message {
+  display: flex;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+}
+
+.relay-customer-tracking .rot-event-icon {
+  flex: none;
+  color: var(--rot-blue);
+  font-weight: 850;
+}
+
+.relay-customer-tracking .rot-details-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.relay-customer-tracking .rot-history-list,
+.relay-customer-tracking .rot-notice-list {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.relay-customer-tracking .rot-history-item {
+  position: relative;
+  margin-left: 0.35rem;
+  padding: 0 0 1.1rem 1.25rem;
+  border-left: 2px solid var(--rot-border);
+}
+
+.relay-customer-tracking .rot-history-item:last-child {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+
+.relay-customer-tracking .rot-history-item::before {
+  position: absolute;
+  top: 0.3rem;
+  left: -0.39rem;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 2px solid var(--rot-blue);
+  border-radius: 50%;
+  background: var(--rot-surface);
+  content: "";
+}
+
+.relay-customer-tracking .rot-history-title-row {
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+}
+
+.relay-customer-tracking .rot-history-title {
+  font-size: 0.95rem;
+  font-weight: 730;
+}
+
+.relay-customer-tracking .rot-kind-label,
+.relay-customer-tracking .rot-notice-kind {
+  width: fit-content;
+  padding: 0.08rem 0.42rem;
+  border: 1px solid var(--rot-border);
+  border-radius: 99px;
+  color: var(--rot-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.relay-customer-tracking .rot-history-message {
+  margin-top: 0.3rem;
+  color: var(--rot-muted);
+  overflow-wrap: anywhere;
+}
+
+.relay-customer-tracking .rot-history-time,
+.relay-customer-tracking .rot-notice-time {
+  display: block;
+  margin-top: 0.3rem;
+}
+
+.relay-customer-tracking .rot-notice-item {
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--rot-border);
+}
+
+.relay-customer-tracking .rot-notice-item:first-child {
+  padding-top: 0.25rem;
+  border-top: 0;
+}
+
+.relay-customer-tracking .rot-notice-message {
+  margin-top: 0.3rem;
+  overflow-wrap: anywhere;
+}
+
+.relay-customer-tracking .rot-empty-copy {
+  margin: 0.7rem 0 0;
+  color: var(--rot-muted);
+}
+
+.relay-customer-tracking .rot-delivery-confirmation {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.25rem 0.65rem;
+  padding: 1rem 1.2rem;
+  border-color: #9bc8aa;
+  color: var(--rot-green);
+  background: var(--rot-green-soft);
+}
+
+.relay-customer-tracking .rot-delivered-icon {
+  grid-row: span 2;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-weight: 850;
+}
+
+.relay-customer-tracking .rot-delivered-heading {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.relay-customer-tracking .rot-delivery-confirmation p,
+.relay-customer-tracking .rot-delivered-time {
+  grid-column: 2;
+  margin: 0;
+  color: var(--rot-green);
+  font-size: 0.9rem;
+}
+
+.relay-customer-tracking .rot-freshness {
+  margin: 0.1rem 0 0;
+  text-align: right;
+}
+
+.relay-customer-tracking .rot-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 760px) {
+  .relay-customer-tracking .rot-header-controls {
+    position: absolute;
+    top: 2.8rem;
+    right: max(2rem, calc((100vw - 58rem) / 2));
+  }
+
+  .relay-customer-tracking .rot-header {
+    position: relative;
+  }
+
+  .relay-customer-tracking .rot-details-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 0.8fr);
+    align-items: start;
+  }
+
+  .relay-customer-tracking .rot-stepper {
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .relay-customer-tracking .rot-eta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .relay-customer-tracking .rot-summary-top {
+    align-items: flex-start;
+  }
+
+  .relay-customer-tracking .rot-freshness {
+    text-align: left;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .relay-customer-tracking {
+    --rot-bg: #111923;
+    --rot-surface: #182433;
+    --rot-ink: #eff5fc;
+    --rot-muted: #bdc9d8;
+    --rot-border: #3c4b5f;
+    --rot-blue: #a9c9ff;
+    --rot-blue-soft: #243954;
+    --rot-amber: #ffd18a;
+    --rot-amber-soft: #49371d;
+    --rot-green: #a7e2ba;
+    --rot-green-soft: #1e3b2c;
+    --rot-red: #ffb8b2;
+    --rot-red-soft: #472625;
+  }
+
+  .relay-customer-tracking .rot-refresh {
+    border-color: #617fa7;
+  }
+
+  .relay-customer-tracking .rot-step.is-current .rot-step-marker {
+    color: #111923;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relay-customer-tracking *,
+  .relay-customer-tracking *::before,
+  .relay-customer-tracking *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
