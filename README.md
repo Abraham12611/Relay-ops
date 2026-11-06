@@ -63,9 +63,12 @@ npm run build
 npm run seed              # migrate and seed/reset the local demo baseline
 npm run reset:demo        # destructive local reset to PRE-INCIDENT
 npm run smoke:foundation # verify the local persisted baseline
-npm run test:integration # optional live API contract suite; requires service URL and role credentials
-npm run smoke            # live golden path; requires a configured service and all role credentials; does not prove Switch connectivity
+npm run test:integration       # optional live API suite; requires service URL and role credentials
+npm run test:integration:expiry # opt-in live expiry probe; waits for the 15-minute approval TTL
+npm run smoke                  # live golden path; requires a configured service and all role credentials; does not prove Switch connectivity
 ```
+
+The live integration commands reset the configured demo service; use an isolated test instance and its role credentials. The expiry probe is opt-in because it waits for the real approval TTL.
 
 Demo sessions are issued by `POST /api/v1/demo/session` with `x-demo-operator-key`; the same-origin browser bridge at `POST /api/demo/session` keeps that key server-side. Driver sessions may select only `DRV-014` or `DRV-009`; the server signs the mapped user identity into an HTTP-only cookie. Agent endpoints use `x-agent-api-key` with separate read, proposal, and execution keys. Never expose these keys to browser code. All responses use `{ data, correlationId }` or the shared `ApiErrorResponse` envelope; valid `X-Request-ID` values are correlated on reads and writes.
 

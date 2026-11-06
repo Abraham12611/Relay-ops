@@ -207,3 +207,39 @@ export async function runRejectedApprovalProbe() {
   assertStatus(attempt, [403, 409], "execution after rejected approval");
   assert.deepEqual((await readIncidentEvents(incidentId)).map(({ id }) => id), beforeRejectedExecution, "rejected approval execution must not append business events");
 }
+
+export async function runExpiredApprovalProbe() {
+  requireIntegrationEnvironment();
+  const runId = randomUUID();
+  await resetDemo();
+  const incident = await reportBreakdown(`${runId}:incident`);
+  const incidentId = incident.id ?? incident.incidentId;
+  const feasibility = await simulate({
+    incidentId,
+    shipmentId: "MED-2048",
+    targetDriverId: "DRV-009",
+    targetVehicleId: "VAN-009",
+  });
+  assert.equal(feasibility.eligible, true, "seeded plan must be feasible for expiry test");
+  const plan = await proposeRecovery(incidentId, `${runId}:plan`);
+  const approval = await approvePlan(plan, `${runId}:approve`);
+  const expiresAt = Date.parse(approval.expiresAt);
+  assert.ok(Number.isFinite(expiresAt), "approval must return its expiry timestamp");
+
+  const waitMs = expiresAt - Date.now() + 1_000;
+  assert.ok(waitMs <= 16 * 60 * 1_000, "approval expiry should be within the expected 16-minute test window");
+  if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+
+  const approvalRead = await apiRequest(`/api/v1/recovery/approvals/${encodeURIComponent(plan.id)}`, {
+    role: "dispatcher",
+  });
+  const expired = responseData(approvalRead, 200, "expired approval read");
+  assert.equal(expired.status, "EXPIRED", "the live API should persist expiry once its TTL elapsed");
+  assert.equal(expired.isCurrent, false, "an expired approval must not be current");
+
+  const attempt = await executePlan(approval, plan, `${runId}:execute-expired`);
+  assertStatus(attempt, [403, 409], "execution after expired approval");
+  const trackingResponse = await apiRequest("/api/v1/track/TRK-2048", { role: "customer" });
+  const tracking = responseData(trackingResponse, 200, "tracking after expired execution");
+  assert.equal((tracking.shipment ?? tracking).status, "IN_TRANSIT", "expired execution must not reassign the shipment");
+}

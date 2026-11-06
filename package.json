@@ -12,6 +12,7 @@
     "start": "prisma generate && next start --hostname 0.0.0.0",
     "test": "prisma generate && cross-env DATABASE_URL=file:../relayops-test.db prisma migrate deploy && cross-env DATABASE_URL=file:../relayops-test.db node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/*.test.mjs",
     "test:integration": "node scripts/run-integration-tests.mjs",
+    "test:integration:expiry": "cross-env RELAYOPS_RUN_EXPIRY_INTEGRATION_TESTS=1 node scripts/run-integration-tests.mjs",
     "typecheck": "prisma generate && tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
