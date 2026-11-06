@@ -2,14 +2,14 @@
 
 ## Verified status — 2026-11-06
 
-- **Switch / Mattermost:** no Switch Console, Gateway, Mattermost server, `relayops-dispatch` room, connected provider, or human-to-agent exchange was available in the Reason cloud environment. No live chat evidence is claimed.
+- **Switch / Mattermost:** no Switch Console/release, Gateway, Mattermost server, `relayops-dispatch` room, connected provider, or human-to-agent exchange was available in the Reason cloud environment. The setup below follows the current official docs, not a validation against an installed Switch version; no live chat evidence is claimed.
 - **Provider:** none is installed or signed in here. Switch's official docs list Claude Code, Codex, Cursor, OpenCode, and Antigravity as supported providers.
-- **RelayOps API:** no API process or usable API credentials were configured in this checkout. The fetched `develop` tree does not contain the backend recovery endpoints; Engineer 1's PR #12 is separate and unmerged. I installed its backend dependencies and applied its SQLite migration in an isolated scratch worktree, but could not start the HTTP server because the shared cloud had reached its preview-server limit. No authenticated HTTP request was made. Engineer 6 confirmed the approval-read and execution contracts; those service behaviors remain unverified here.
+- **RelayOps API:** `develop` contains the incident-detail route but not the persisted approval-read or execution routes. A separate isolated checkout ran the real local Next.js app against temporary SQLite with synthetic keys: it created `INC-1042`, then the RelayOps client and MCP `getIncident` call read that record. The live integration tests passed 2/2 and confirmed `x-agent-api-key` (no `Authorization`), `X-Request-ID`, and matching `correlationId`. This is local application evidence only—not an external or production API call. Approval-read and execution behavior remain unverified against a running service; Engineer 6 confirmed their contract only.
 - **Adapter:** the HTTP client now authenticates with `x-agent-api-key`, sends `X-Request-ID` on every outgoing request (including reads), and keeps `Idempotency-Key` on business mutations. The API returns a valid request ID as `correlationId`. Approval reads use the agreed `GET /api/v1/recovery/approvals/:planId` route; execution remains subject to the API's atomic revalidation.
 - **Switch registration:** `switch/relayops-mcp.mjs` implements a local MCP stdio server over the typed RelayOps tool gateway. It is intended to be added as an MCP server in the chosen provider's own configuration, not registered through an undocumented Switch endpoint. No live provider loaded this MCP server in this environment.
-- **Environment:** Reason cloud Linux, Node.js `v22.23.4`, npm `10.9.9`. `docker --version` and `docker compose version` both returned `command not found`. `RELAYOPS_API_BASE_URL`, `RELAYOPS_REQUEST_ID_HEADER`, and the read/propose/execute API credentials were unset; no Workspace secrets were available. The isolated test keys and worktree were removed after the server could not be started.
+- **Environment:** This Reason cloud has no Switch Console, provider sign-in, Mattermost room, external `RELAYOPS_API_BASE_URL`, or saved RelayOps keys; `docker` is unavailable. The separate local smoke used a temporary SQLite database and generated test-only keys outside the repository, then stopped the preview and removed its temporary files.
 
-The code and the live proof are separate milestones. The mocked tests verify adapter behavior; they do not prove an authenticated API call, Switch setup, or Mattermost communication.
+The local HTTP smoke proves the adapter/MCP path against the real app in an isolated test environment. It does not prove a deployed service, live Switch registration, or human-to-agent Mattermost communication.
 
 ## Why the adapter is an MCP server
 
@@ -61,8 +61,8 @@ Use the current official [Switch Console installation](https://docs.switchagents
 
 1. On a supported host, install and open Switch Console. For a self-contained local Switch stack, use **Add a server → Run a server on this computer** with Docker running; Console provisions the Switch stack and bundled Mattermost. Alternatively, connect to a team server or an onboarded remote host. Switch troubleshooting documents that the bundled chat app is the Docker-dependent part; an existing/external messaging app is another option. For this task, follow the official [Mattermost connection guide](https://docs.switchagents.ai/switch-rooms/deploy/messaging-apps/mattermost): an external Mattermost must be reachable from the Switch server, have bot-account creation enabled, and provide an admin account plus the team's URL slug.
 2. Install one supported provider and sign it in. Add the RelayOps MCP stdio server to that provider's own MCP configuration, supplying the API origin and scoped keys through a user-level environment block.
-3. In Switch Console, onboard `relay-recovery` with this repository as its working directory and the instructions in [agent-system-instructions.md](agent-system-instructions.md). Verify the provider is signed in and retain access to the provider's MCP tools.
-4. Create `relayops-dispatch` through Switch's room UI with the agent and a real, linked human dispatcher.
+3. In Switch Console, onboard `relay-recovery` with this repository as its working directory and the instructions in [agent-system-instructions.md](agent-system-instructions.md). Verify the provider is signed in and retain access to the provider's MCP tools. Leave **Bypass permissions** off.
+4. Create `relayops-dispatch` through Switch's room UI with the agent and a real dispatcher whose Mattermost account is linked to their Switch user. Configure **Who can talk to your agent** deliberately to include that dispatcher; the default is the owner and the owner's agents, so keep the audience no broader than needed.
 5. In Mattermost, send a human request such as `@relay-recovery investigate INC-1042 and report affected shipments; do not execute anything`. Capture the actual human message and agent reply, then verify a tool result against the API response and its request ID. Do not stage a mock chat or screenshot.
 
 Switch officially supports Claude Code, OpenCode, Codex, Cursor, and Antigravity; it starts the chosen provider on a machine you control. Set up and sign in to the provider on the same machine (or onboarded host) that Switch runs the agent on. Follow Switch's documented **Your Agents** onboarding flow to choose the provider, directory, name and settings, then invite that agent to a room. This is not an MCP registration endpoint: MCP is configured on the provider itself.
@@ -72,16 +72,15 @@ Switch's standard agent registration, connection, and operations endpoints are f
 ## Checks and blockers
 
 ```text
-node --version                 v22.23.4
-npm --version                  10.9.9
-docker --version               command not found
-docker compose version         command not found
-npm test                       passed (28 passed, 4 skipped)
+npm test                       passed (29 passed, 5 skipped)
 npm run typecheck              passed
-git diff --check               passed
-MCP stdio startup smoke        passed (8 tools listed; protocol 2025-06-18)
-live agent API GET             skipped: no reachable server; shared preview-server capacity was full
-Switch/Mattermost human reply  not run: Console/provider/server unavailable
+npm run build                  passed
+git diff --check                passed
+Codex MCP TOML example         parsed successfully
+node --experimental-strip-types --disable-warning=ExperimentalWarning --test --test-reporter=tap tests/relayops-agent-tools.integration.test.mjs
+                               passed (2/2; isolated Next.js + SQLite)
+MCP tools/call getIncident     passed; returned INC-1042
+Live remote API / Switch chat  not run; no external API or configured Switch/Mattermost
 ```
 
-The unit tests use an injected fetch stub, and the MCP tests exercise local protocol messages. Neither is live service evidence. `tests/relayops-agent-tools.integration.test.mjs` tests the live vehicle-read route when `RELAYOPS_API_BASE_URL` and `AGENT_READ_API_KEY` are set; its incident-detail GET additionally requires `RELAYOPS_TEST_INCIDENT_ID` to name an existing case. These checks verify `x-agent-api-key`, absence of bearer auth, and that `X-Request-ID` is echoed as `correlationId`. Run `node --test tests/relayops-agent-tools.integration.test.mjs` against a reachable API and inspect the result. The current cloud needs a supported host with Docker + Switch Console, one signed-in provider, a real Mattermost room/human account, a running RelayOps API with the three scoped keys, and an API address reachable from the provider process before the live workflow can be demonstrated.
+The full test suite still skips five live/golden-path checks when run without environment credentials. A separate isolated run of `node --experimental-strip-types --disable-warning=ExperimentalWarning --test --test-reporter=tap tests/relayops-agent-tools.integration.test.mjs` passed both live integration tests against the local app and synthetic SQLite data; the MCP `tools/call getIncident` returned `INC-1042`. It verified `x-agent-api-key`, no bearer `Authorization`, and that `X-Request-ID` equals the API's `correlationId`. It does not prove an external or production API, or that Switch loaded the MCP server. No human Switch/Mattermost exchange or provider registration was observed. To demonstrate that, a human-controlled supported Switch runtime needs a signed-in provider, the user-level MCP configuration above, a reachable API with approved scoped keys, a real Mattermost connection and linked dispatcher account, and an actual room/tool-call exchange.
