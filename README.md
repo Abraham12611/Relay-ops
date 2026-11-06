@@ -47,7 +47,7 @@ npm test
 npm run typecheck
 ```
 
-`npm test` exercises the deterministic in-memory fixture and pure recovery checks; its live API contract tests are skipped unless explicitly run through `npm run test:integration`. The new `npm run reset:demo` and `npm run smoke` scripts require a running API and role-scoped demo credentials; they do not start a web server or prove a Switch/Mattermost connection. See [the demo rehearsal gate](docs/DEMO-REHEARSAL.md) for exact setup, commands, cases, and evidence requirements. API routes, database migrations/seeding, UI, and `dev`, `lint`, and `seed` commands remain unimplemented.
+`npm test` exercises deterministic local checks; live API contract tests are skipped unless explicitly run through `npm run test:integration`. `npm run reset:demo` restores a PRE-INCIDENT baseline with no `INC-1042`; the smoke flow reports the driver breakdown to create it. These commands require a running API and demo credentials, do not start a web server, and do not prove a Switch/Mattermost connection. See [the demo rehearsal gate](docs/DEMO-REHEARSAL.md) for exact setup, commands, cases, and evidence requirements. API routes, database migrations/seeding, UI, and `dev`, `lint`, and `seed` commands remain unimplemented.
 
 ## Progress
 

@@ -8,7 +8,7 @@
 - Resilience: refresh, retry, disconnected Switch, duplicate message, declined backup.
 
 ## Golden-path acceptance (P0)
-- [ ] Driver submits breakdown for VAN-014 once and gets INC-1042.
+- [ ] A clean reset has no incident; the authenticated driver submits breakdown for VAN-014 once and creates INC-1042.
 - [ ] Six affected shipments are linked and CRITICAL MED-2048 prioritized.
 - [ ] Switch-connected agent in Mattermost reads INC-1042 using business API; result agrees with DB.
 - [ ] Agent proposes VAN-009 after verifiable capacity/conflict validation.
@@ -47,13 +47,13 @@
 The repository provides these checks (Node.js 22.6+):
 
 - `npm ci` — install lockfile-pinned dependencies.
-- `npm test` — run deterministic fixture/feasibility checks; live API tests are explicitly skipped in this default command.
+- `npm test` — run deterministic fixture/feasibility and smoke-helper contract checks; live API tests are explicitly skipped in this default command.
 - `npm run typecheck` — type-check the TypeScript source.
-- `npm run test:integration` — require the service URL and all role-scoped tokens, then exercise live API contract cases.
-- `npm run reset:demo` — reset an isolated demo service and verify fixed seed IDs, time, and links.
+- `npm run test:integration` — require the service URL, demo-operator key, and distinct agent read/propose/execute keys, then exercise live API contract cases.
+- `npm run reset:demo` — reset an isolated demo service to PRE-INCIDENT and verify fixed seed IDs/time with no incident or incident links.
 - `npm run smoke` — execute the business-API recovery path and its authorization/idempotency/failure checks once.
 
-The reset and smoke commands mutate or read the configured service, but none starts an app server. The current checkout still has no routes, persistent store, UI, or live Switch integration. API tests and smoke are not verified until run against those components. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for environment requirements and a two-run manual checklist.
+The reset command restores PRE-INCIDENT; the smoke script must report the driver's breakdown to create INC-1042 before case-specific checks. Reset and smoke mutate or read the configured service, but neither starts an app server. The E01 bootstrap and E06 approval/execute implementation are not integrated in the current `develop` snapshot, and no Switch exchange or tool call has been authenticated; API tests, smoke, and Switch proof are not verified until run against those components. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for environment requirements and a two-run manual checklist.
 
 ## Planned commands not implemented yet
 `npm run dev`, `npm run lint`, and `npm run seed` will be added as their application/database pieces land.

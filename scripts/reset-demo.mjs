@@ -2,7 +2,7 @@ import { resetDemo } from "./lib/demo-api.mjs";
 
 try {
   const state = await resetDemo();
-  console.log(`Demo reset verified: ${state.seededAt}; INC-1042 OPEN; MED-2048 / TRK-2048; six affected shipments.`);
+  console.log(`Demo reset verified: ${state.seededAt}; PRE-INCIDENT with no INC-1042; six shipments remain IN_TRANSIT on available VAN-014; MED-2048 / TRK-2048.`);
 } catch (error) {
   console.error(`Demo reset failed: ${error instanceof Error ? error.message : "unknown error"}`);
   process.exitCode = 1;

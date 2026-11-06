@@ -12,22 +12,18 @@ npm test
 npm run typecheck
 ```
 
-`npm test` runs deterministic local fixture/feasibility tests and reports the live API contract tests as **skipped**. They run only through `npm run test:integration`, which requires all integration variables and explicitly opts into mutating the configured demo service; a skipped integration test is not a pass. Run:
+`npm test` runs deterministic fixture/feasibility plus reset, request-header, and response-envelope helper checks; it reports the live API contract tests as **skipped**. They run only through `npm run test:integration`, which requires all integration variables and explicitly opts into mutating the configured demo service; a skipped integration test is not a pass. Run:
 
 ```bash
 RELAYOPS_BASE_URL=http://127.0.0.1:3000 \
 RELAYOPS_DEMO_OPERATOR_TOKEN=... \
-RELAYOPS_DRIVER_014_TOKEN=... \
-RELAYOPS_DRIVER_009_TOKEN=... \
-RELAYOPS_DISPATCHER_TOKEN=... \
 RELAYOPS_AGENT_READ_TOKEN=... \
 RELAYOPS_AGENT_PROPOSE_TOKEN=... \
 RELAYOPS_AGENT_EXECUTE_TOKEN=... \
-RELAYOPS_CUSTOMER_TOKEN=... \
 npm run test:integration
 ```
 
-The ellipses above are placeholders, not usable credentials. Set each variable in the local environment or secret manager; never commit tokens, paste them into evidence, or capture them on screen. The harness uses bearer tokens, request IDs, and idempotency keys. It checks the API envelope and routes defined in `docs/05-DATA-API.md`.
+The ellipses above are placeholders, not usable credentials. Set each variable in the local environment or secret manager; never commit tokens, paste them into evidence, or capture them on screen. The backend contract in PR #12 uses the demo operator key to create signed, role-scoped HTTP-only persona sessions; the three separate agent keys use `x-agent-api-key`. Every request carries `X-Request-ID`, every business mutation also carries `Idempotency-Key`, success uses `{ data, correlationId }`, and failures use `{ error: { code, message, correlationId } }`. The harness checks these contracts against the integrated service; the current `develop` branch does not yet contain that backend.
 
 A verified deterministic reset is:
 
@@ -37,7 +33,7 @@ RELAYOPS_DEMO_OPERATOR_TOKEN=... \
 npm run reset:demo
 ```
 
-The reset command posts to the demo-only reset endpoint, fetches the resulting state, and verifies the fixed seed timestamp, open `INC-1042`, `MED-2048` / `TRK-2048`, available `VAN-009`, and exactly six linked shipments. It mutates the configured demo database; point it only at an isolated demo environment. Reset does not create fabricated evidence.
+The reset command posts to the demo-only reset endpoint, fetches the resulting state, and verifies the fixed seed timestamp, `PRE-INCIDENT` state, no incident or incident-shipment links, six `IN_TRANSIT` shipments still assigned to available `VAN-014`, critical `MED-2048` / `TRK-2048`, and available `VAN-009`. It mutates the configured demo database; point it only at an isolated demo environment. Reset does not create fabricated evidence.
 
 One business-API smoke run is:
 
@@ -46,9 +42,9 @@ One business-API smoke run is:
 npm run smoke
 ```
 
-The smoke script resets state, rejects broken/mismatched targets, reports the breakdown twice with one idempotency key, creates and revises a plan, rejects an unapproved and stale write, rejects agent self-approval, accepts only the dispatcher decision, repeats execution with the same key, verifies wrong-driver and pre-pickup delivery failures, completes backup-driver delivery, and checks the customer projection against internal event IDs and sensitive field names. It is direct API evidence, **not** proof of a live Switch conversation or a browser UI. Run `npm run smoke` twice separately; each run performs a fresh reset. Capture the console output from both actual runs, including any failure, without editing it into a success claim.
+The smoke script resets state, reports the `VAN-014` breakdown to create `INC-1042`, confirms six affected shipments, and only then runs case-dependent simulations. It rejects broken/mismatched targets, checks duplicate incident idempotency, creates and revises a plan, rejects an unapproved and stale write, rejects agent self-approval, accepts only the dispatcher decision bound to plan ID/hash/version, reads the resulting approval, repeats execution with the same key and verifies the unchanged receipt, then checks driver acceptance/delivery and the customer projection. It is direct API evidence, **not** proof of a live Switch conversation or a browser UI. Run `npm run smoke` twice separately; each run performs a fresh reset. Capture the console output from both actual runs, including any failure, without editing it into a success claim.
 
-The current checkout has no server routes, persistent database, or UI. Therefore live commands will not pass until those application components and role credentials are available. The source-only tests cannot establish API authorization or persistence behavior.
+As of this rehearsal-plan revision, E01's app/bootstrap and persistence work is still in open PR #12, while E06's approval-read/execute implementation is not yet published or integrated. The current `develop` checkout therefore has no runnable integrated API to exercise. The Switch owner also reports no real room exchange, agent response, or live business-tool call; the Switch Console/provider/API endpoint and authentic evidence remain unavailable. Do not mark the API smoke or Switch milestone passed until each is exercised against the integrated service/real room.
 
 ## Critical automated cases
 
@@ -65,7 +61,20 @@ The current checkout has no server routes, persistent database, or UI. Therefore
 
 ## Current blocker snapshot
 
-At this rehearsal-plan revision, the attached checkout contains only the typed fixture and read-only feasibility module; it has no runnable server, persistent store, reset route, or customer/driver/operations UI. Engineer 2 reports that no real Switch/Mattermost message, agent response, business-tool call, API reachability, or authentic evidence has been captured; their cloud environment has no Docker CLI/Compose or running Switch/API service, and the base URL plus agent credentials are unavailable. The API/service implementation is still in progress, and approval-read is not yet contracted, so execution remains fail-closed. No logs or screenshots are represented as successful evidence here. Recheck this section against actual E01/E02 service and room state before rehearsal; it is a blocker report, not an integration result.
+At this rehearsal-plan revision, `develop` still has no runnable server or persistent store: E01's bootstrap/persistence is in open PR #12, E06's approval-read/execute work is unpublished and not integrated, and the customer/driver/operations modules are not yet mounted to live routes. Engineer 2 reports no real Switch/Mattermost message, agent response, business-tool call, API reachability, or authentic evidence; their cloud environment has no Docker CLI/Compose or running Switch/API service. No live API URL or role credentials were verified in this Session. No logs or screenshots are represented as successful evidence here. Recheck this section against the integrated E01/E06 service and actual E02 room state before rehearsal; it is a blocker report, not an integration result.
+
+## Quick live-demo checklist
+
+Run these steps in order and record evidence from this run only:
+
+1. **Customer:** run the demo reset to PRE-INCIDENT, open `/track/TRK-2048` before the incident, and note the actual current status/ETA.
+2. **Driver:** sign in as `DRV-014`, report the `VAN-014` breakdown, and record the created `INC-1042` receipt.
+3. **Switch agent:** in the real `relayops-dispatch` Mattermost room, ask `relay-recovery` to investigate and propose a feasible backup without executing; verify the real reply and read/simulation tool calls.
+4. **Dispatcher:** review the same plan in the authenticated operations UI and approve the exact plan version/hash.
+5. **Backup driver:** as `DRV-009`, accept the returned assignment, confirm pickup, and deliver with the demo proof reference.
+6. **Delivered customer:** refresh `/track/TRK-2048` and verify `DELIVERED`, the customer-visible timeline, and no private/internal fields.
+
+**If Switch is unavailable:** say that the Switch step and full golden path are blocked. Do not stage chat, replay a generated message, or call API smoke output Switch proof. If the application/API portions are genuinely available, they may be shown as an explicitly labeled degraded/API-only walkthrough; continue only with truthful live state. Previously captured authentic Switch evidence may be shown only as dated prior evidence, not as a live exchange.
 
 ## Golden-path operator checklist
 
@@ -77,12 +86,12 @@ Complete one row at a time for each run. Do not mark a row complete without obse
 - [ ] Confirm this is an isolated demo database and the operator is authorized to reset it.
 - [ ] Run `npm ci`, `npm test`, and `npm run typecheck`; retain unedited output.
 - [ ] Run `npm run reset:demo`; verify health and the expected deterministic fixture IDs and timestamp.
-- [ ] Confirm `INC-1042` is open, six affected shipments are linked, `MED-2048` is critical, and `VAN-009` / `DRV-009` are available/on duty.
+- [ ] Confirm reset is PRE-INCIDENT: no `INC-1042` or incident links; six shipments are IN_TRANSIT on available `VAN-014`; `MED-2048` is critical; `VAN-009` / `DRV-009` are available/on duty.
 - [ ] Open the demo, tracking, driver, and operations surfaces in separate profiles/tabs. Refresh at least one persisted view.
 - [ ] Verify Switch Console, Mattermost, the real `relayops-dispatch` room, connected agent, and agent-to-API reachability. Record versions and actual endpoint health; never infer these from configuration alone.
 - [ ] Verify recording display/audio, 1080p, readable text zoom, safe windows, no tokens, and a timestamped run record.
 
-### Driver, Switch agent, dispatcher, backup driver, customer
+### Customer, driver, Switch agent, dispatcher, backup driver, delivered customer
 
 - [ ] **Original driver:** report the `VAN-014` breakdown once; record the returned incident ID and persisted incident event.
 - [ ] **Switch agent (authentic):** in the real room ask `relay-recovery` to investigate `INC-1042` and recommend a backup without executing. Capture the real human message, genuine agent response, and actual read/simulation tool evidence. Do not stage or edit chat.

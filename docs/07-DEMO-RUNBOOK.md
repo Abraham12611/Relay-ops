@@ -8,7 +8,7 @@ Show one uninterrupted incident from actual human input to genuine Switch-mediat
 - [ ] App opens /demo, customer tracking, /driver and /ops in separate browser profiles/tabs.
 - [ ] Mattermost and Switch Console running; connected agent responds in a real room.
 - [ ] Agent service can reach `APP_BASE_URL` and secret is not exposed in browser.
-- [ ] Endpoints health checks green; case INC-1042 absent/open in expected seed baseline.
+- [ ] Endpoints health checks green; reset is PRE-INCIDENT: INC-1042 is absent, VAN-014 is AVAILABLE, and the six assigned shipments are IN_TRANSIT.
 - [ ] Screen recording audio and text zoom tested, no account tokens visible.
 - [ ] Local time and seed fixtures deterministic; stable link to the real room.
 - [ ] Backup: screenshots from successful authentic rehearsal + separate narrated video segment if live connection falls over; **never stage fake chat as a real integration**.
@@ -30,8 +30,8 @@ Show one uninterrupted incident from actual human input to genuine Switch-mediat
 If demo is over 5 minutes, trim navigation, **not** the actual human-agent exchange or approval evidence.
 
 ## Live judge operator sequence
-1. Open /demo. Click RESET SCENARIO. Confirm health green. Open /track/TRK-2048.
-2. In driver portal as DRV-014 report BREAKDOWN (reason: engine failure). Note INC-1042.
+1. Open /demo. Click RESET SCENARIO. Confirm health green, PRE-INCIDENT state, and no INC-1042. Open /track/TRK-2048.
+2. In driver portal as DRV-014 report BREAKDOWN (summary: engine failure). Confirm the response creates INC-1042 before opening its case page.
 3. Open real Mattermost operations room: `@relay-recovery investigate INC-1042, tell me affected shipments and recommend a feasible backup; do not execute`. Capture agent calling `getIncident` and `simulateReassignment`.
 4. Review plan in /ops/exceptions/INC-1042. Challenge an assumption in room; agent answers using actual data. Approve exact plan via dashboard, NOT only chat text.
 5. In room: `@relay-recovery execute the approved recovery plan for INC-1042 and report assignment ID`. Verify actual tool receipt.

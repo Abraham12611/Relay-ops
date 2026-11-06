@@ -9,7 +9,7 @@ integrationTest("golden recovery API path covers authorization, versions, idempo
   const result = await runGoldenPath();
   assert.equal(result.incidentId, "INC-1042");
   assert.ok(result.assignmentId);
-  assert.ok(result.steps.length >= 9);
+  assert.ok(result.steps.length >= 11);
 });
 
 integrationTest("a rejected dispatcher approval cannot be executed", async () => {
