@@ -22,11 +22,22 @@ export interface RelayOpsIncidentDetail extends Incident {
 }
 
 export interface RelayOpsExecutionReceipt {
+  id: string;
+  status: "EXECUTED";
+  planId: string;
+  planHash: string;
+  planVersion: number;
+  approvalId: string;
   assignmentId: string;
   shipmentId: string;
   caseId: string;
   eventId: string;
   resultingStatus: string;
+  executedAt: string;
+}
+
+export interface RelayOpsApprovalRecord extends Approval {
+  planVersion: number;
 }
 
 export interface RelayOpsCredentials {
@@ -35,22 +46,14 @@ export interface RelayOpsCredentials {
   execute?: string;
 }
 
-/**
- * A trusted server-side lookup backed by the RelayOps authorization service.
- * The current API contract has no approval-read endpoint, so no default lookup is
- * installed and execution remains disabled until the business app supplies one.
- */
-export type ApprovalReader = (planId: string) => Promise<Approval>;
-
 export interface RelayOpsApiOptions {
   baseUrl: string;
   credentials: RelayOpsCredentials;
   fetch?: typeof fetch;
   createId?: () => string;
   now?: () => number;
-  /** Must be configured only after E04 confirms the API's request-ID header. */
+  /** The API contract fixes this header to X-Request-ID; only that spelling is accepted. */
   requestIdHeaderName?: string;
-  approvalReader?: ApprovalReader;
 }
 
 export class RelayOpsApiConfigurationError extends Error {
@@ -121,6 +124,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isNullableTimestamp(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && Number.isFinite(Date.parse(value)));
+}
+
+function isTimestamp(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
 function requiredId(value: string, label: string): string {
   if (!value.trim()) {
     throw new RelayOpsProtocolError(`${label} must not be empty.`);
@@ -162,8 +177,7 @@ export class RelayOpsApi {
   private readonly fetchImpl: typeof fetch;
   private readonly createId: () => string;
   private readonly now: () => number;
-  private readonly requestIdHeaderName: string | undefined;
-  private readonly approvalReader: ApprovalReader | undefined;
+  private readonly requestIdHeaderName: string;
 
   constructor(options: RelayOpsApiOptions) {
     this.baseUrl = validateBaseUrl(options.baseUrl);
@@ -171,8 +185,11 @@ export class RelayOpsApi {
     this.fetchImpl = options.fetch ?? globalThis.fetch;
     this.createId = options.createId ?? (() => globalThis.crypto.randomUUID());
     this.now = options.now ?? Date.now;
-    this.requestIdHeaderName = options.requestIdHeaderName;
-    this.approvalReader = options.approvalReader;
+    const configuredRequestIdHeader = options.requestIdHeaderName?.trim();
+    if (configuredRequestIdHeader && configuredRequestIdHeader.toLowerCase() !== "x-request-id") {
+      throw new RelayOpsApiConfigurationError("The RelayOps API request-ID header must be X-Request-ID.");
+    }
+    this.requestIdHeaderName = "X-Request-ID";
   }
 
   /** GET /api/v1/incidents/:id */
@@ -238,22 +255,33 @@ export class RelayOpsApi {
     });
   }
 
-  /**
-   * Approval status must come from the business application's authorization layer.
-   * No GET approval route is currently documented, so this fails closed by default.
-   */
-  async getApproval(planId: string): Promise<Approval> {
+  /** GET /api/v1/recovery/approvals/:planId; returns persisted authorization, never chat text. */
+  async getApproval(planId: string): Promise<RelayOpsApprovalRecord> {
     const id = requiredId(planId, "planId");
-    if (!this.approvalReader) {
-      throw new RelayOpsToolUnavailableError(
-        "getApproval",
-        "the business API has no documented approval-read contract",
-      );
-    }
-
-    const approval = await this.approvalReader(id);
-    if (approval.planId !== id) {
-      throw new RelayOpsProtocolError("Approval response did not match the requested plan ID.");
+    const approval = await this.request<RelayOpsApprovalRecord>({
+      scope: "agent-read",
+      method: "GET",
+      path: `/recovery/approvals/${encodeURIComponent(id)}`,
+    });
+    if (
+      !isRecord(approval) ||
+      typeof approval.id !== "string" ||
+      !approval.id.trim() ||
+      approval.planId !== id ||
+      typeof approval.planHash !== "string" ||
+      !approval.planHash.trim() ||
+      typeof approval.planVersion !== "number" ||
+      !Number.isSafeInteger(approval.planVersion) ||
+      approval.planVersion < 1 ||
+      typeof approval.status !== "string" ||
+      !["PENDING", "APPROVED", "REJECTED", "EXPIRED", "CONSUMED"].includes(approval.status) ||
+      !isNullableString(approval.approvedBy) ||
+      !isNullableTimestamp(approval.approvedAt) ||
+      !isTimestamp(approval.expiresAt) ||
+      !isNullableTimestamp(approval.consumedAt) ||
+      !isNullableString(approval.decisionReason)
+    ) {
+      throw new RelayOpsProtocolError("Approval response did not match the requested plan contract.");
     }
     return approval;
   }
@@ -269,20 +297,50 @@ export class RelayOpsApi {
     requiredId(input.idempotencyKey, "idempotencyKey");
 
     const approval = await this.getApproval(input.planId);
-    if (approval.id !== input.approvalId || approval.status !== "APPROVED") {
+    if (
+      approval.id !== input.approvalId ||
+      approval.status !== "APPROVED" ||
+      !approval.approvedBy?.trim() ||
+      !approval.approvedAt
+    ) {
       throw new RelayOpsApprovalError("The business application has not approved this exact plan.");
     }
-    if (approval.consumedAt !== null || Date.parse(approval.expiresAt) <= this.now()) {
+    const expiresAt = Date.parse(approval.expiresAt);
+    if (approval.consumedAt !== null || expiresAt <= this.now()) {
       throw new RelayOpsApprovalError("The business application approval is expired or already consumed.");
     }
 
-    return this.request<RelayOpsExecutionReceipt>({
+    const receipt = await this.request<RelayOpsExecutionReceipt>({
       scope: "agent-execute",
       method: "POST",
       path: "/recovery/execute",
       body: input,
       idempotencyKey: input.idempotencyKey,
     });
+    if (
+      !isRecord(receipt) ||
+      typeof receipt.id !== "string" ||
+      !receipt.id.trim() ||
+      receipt.status !== "EXECUTED" ||
+      receipt.planId !== approval.planId ||
+      receipt.planHash !== approval.planHash ||
+      receipt.planVersion !== approval.planVersion ||
+      receipt.approvalId !== approval.id ||
+      typeof receipt.assignmentId !== "string" ||
+      !receipt.assignmentId ||
+      typeof receipt.shipmentId !== "string" ||
+      !receipt.shipmentId ||
+      typeof receipt.caseId !== "string" ||
+      !receipt.caseId ||
+      typeof receipt.eventId !== "string" ||
+      !receipt.eventId ||
+      typeof receipt.resultingStatus !== "string" ||
+      !receipt.resultingStatus.trim() ||
+      !isTimestamp(receipt.executedAt)
+    ) {
+      throw new RelayOpsProtocolError("Execution receipt did not match the approved plan.");
+    }
+    return receipt;
   }
 
   /** Incident detail is the current documented source for status and version. */
@@ -292,25 +350,16 @@ export class RelayOpsApi {
 
   private async request<T>(options: RequestOptions): Promise<T> {
     const token = this.credentialsFor(options.scope);
+    const requestId = requiredId(this.createId(), "requestId");
+    if (requestId.length > 128 || !/^[A-Za-z0-9._:-]+$/.test(requestId)) {
+      throw new RelayOpsApiConfigurationError("Generated request IDs must use the API-supported format.");
+    }
     const headers = new Headers({
       Accept: "application/json",
-      "X-Agent-API-Key": token,
+      "x-agent-api-key": token,
+      [this.requestIdHeaderName]: requestId,
     });
     const init: RequestInit = { method: options.method, headers };
-
-    if (options.idempotencyKey !== undefined) {
-      if (!this.requestIdHeaderName) {
-        throw new RelayOpsToolUnavailableError(
-          "business API mutation",
-          "the API requires a request ID, but E04 has not confirmed its header name",
-        );
-      }
-      try {
-        headers.set(this.requestIdHeaderName, requiredId(this.createId(), "requestId"));
-      } catch {
-        throw new RelayOpsApiConfigurationError("The configured request-ID header name is invalid.");
-      }
-    }
 
     if (options.body !== undefined) {
       headers.set("Content-Type", "application/json");
@@ -376,9 +425,7 @@ export function relayOpsApiOptionsFromEnvironment(
       ...(env.AGENT_PROPOSE_API_KEY !== undefined ? { propose: env.AGENT_PROPOSE_API_KEY } : {}),
       ...(env.AGENT_EXECUTE_API_KEY !== undefined ? { execute: env.AGENT_EXECUTE_API_KEY } : {}),
     },
-    ...(env.RELAYOPS_REQUEST_ID_HEADER
-      ? { requestIdHeaderName: env.RELAYOPS_REQUEST_ID_HEADER }
-      : {}),
+    requestIdHeaderName: env.RELAYOPS_REQUEST_ID_HEADER || "X-Request-ID",
   };
 }
 
