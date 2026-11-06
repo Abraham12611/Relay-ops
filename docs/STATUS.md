@@ -15,7 +15,7 @@
 |---|---|---|---|
 | F0 Repository initialized | Done | README and docs committed | planning |
 | F0 Switch + Mattermost agent proof | Not started | add authentic evidence link | E02 |
-| F1 Schema + seed + DTO freeze | In progress | Typed contracts, immutable scenario fixture, feasibility checks and tests in current PR; database schema/migrations remain | E03/E04 |
+| F1 Schema + seed + DTO freeze | In progress | [PR #6](https://github.com/Abraham12611/Relay-ops/pull/6): typed contracts, immutable scenario fixture, feasibility checks and tests; database schema/migrations remain | E03/E04 |
 | F2 Parallel features | Not started | PR links below | squads |
 | F3 Golden path integrated | Not started | test and video rehearsal | E01/E18 |
 | F4 Video, README and submission | Not started | public links | E19/E20 |
@@ -25,10 +25,10 @@
 |---|---|---|---|---|
 | E01 | Not started | — | — | — |
 | E02 | Not started | — | — | — |
-| E03 | In progress | — | Deterministic in-memory fixture; persistence/schema not started | — |
-| E04 | In progress | — | Shared TypeScript contracts; auth/routes not started | — |
+| E03 | In progress | — | [PR #6](https://github.com/Abraham12611/Relay-ops/pull/6): deterministic in-memory fixture; persistence/schema not started | — |
+| E04 | In progress | — | [PR #6](https://github.com/Abraham12611/Relay-ops/pull/6): shared TypeScript contracts; auth/routes not started | — |
 | E05 | Not started | — | — | — |
-| E06 | In progress | — | Read-only fixture feasibility checks; API integration not started | — |
+| E06 | In progress | — | [PR #6](https://github.com/Abraham12611/Relay-ops/pull/6): read-only fixture feasibility checks; API integration not started | — |
 | E07 | Not started | — | — | — |
 | E08 | Not started | — | — | — |
 | E09 | Not started | — | — | — |
