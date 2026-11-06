@@ -104,6 +104,7 @@ export interface Incident {
   severity: IncidentSeverity;
   status: CaseStatus;
   summary: string;
+  version: number;
   createdAt: string;
   resolvedAt: string | null;
   currentPlanId: string | null;

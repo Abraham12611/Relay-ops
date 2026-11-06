@@ -7,7 +7,7 @@
 - `Vehicle`: id, code, capacityUnits, occupiedUnits, status AVAILABLE|IN_SERVICE|BROKEN_DOWN, locationLat/Lng (seed only).
 - `Driver`: id, userId, vehicleId, dutyStatus, lastKnownLat/Lng.
 - `Shipment`: id, trackingCode, customerId, assignedDriverId, assignedVehicleId, priority NORMAL|CRITICAL, promisedAt, etaAt, status, units, proofOfDeliveryRef?.
-- `Incident`: id, type BREAKDOWN|WRONG_PARCEL|FAILED_DELIVERY, vehicleId, reporterId, severity, status, summary, createdAt, resolvedAt?, currentPlanId?.
+- `Incident`: id, type BREAKDOWN|WRONG_PARCEL|FAILED_DELIVERY, vehicleId, reporterId, severity, status, summary, version (optimistic concurrency), createdAt, resolvedAt?, currentPlanId?. Plan proposals supply expected version; stale versions return 409 without writing.
 - `IncidentShipment`: incidentId, shipmentId, originalStatus (many-to-many).
 - `RecoveryPlan`: id, incidentId, version, targetShipmentId, proposedVehicleId, proposedDriverId, newEtaAt, rationale, feasibilitySnapshot, hash, status.
 - `Approval`: id, planId, planHash, status, approvedBy?, approvedAt?, expiresAt, consumedAt?, decisionReason?.
@@ -17,7 +17,7 @@
 - `IdempotencyRecord`: actor/action/key, result JSON, createdAt, unique composite index.
 
 ## Fixed seed fixture
-Case: `INC-1042`; critical shipment `MED-2048`; tracking `TRK-2048`; broken vehicle `VAN-014`; backup `VAN-009`; backup driver `DRV-009`; primary driver `DRV-014`; six affected shipments. All coordinates synthetic in one city and time clock anchored to seed time. Keep dates explicitly in local/ISO format, not arbitrary browser time.
+Reset baseline: `VAN-014` is AVAILABLE, its six assigned shipments are IN_TRANSIT, and `INC-1042` is absent. An authenticated `DRV-014` breakdown report creates `INC-1042`, links those shipments, marks the van BROKEN_DOWN and the shipments AT_RISK. Critical shipment `MED-2048` / tracking `TRK-2048`, backup `VAN-009` / driver `DRV-009`. Coordinates are synthetic and dates use ISO timestamps.
 
 ## Shared types (illustrative TS contract; implementation chooses module ownership)
 ```ts
@@ -41,7 +41,8 @@ type ExecuteRequest = { approvalId: string; planId: string; idempotencyKey: stri
 | GET | /api/v1/driver/jobs | driver | assigned jobs |
 | POST | /api/v1/incidents | driver | create/dedupe case, mark at-risk |
 | GET | /api/v1/incidents | dispatcher | filtered list |
-| GET | /api/v1/incidents/:id | dispatcher/agent-read | case details/events |
+| GET | /api/v1/incidents/:id | dispatcher/agent-read | case details, version, affected shipments/events |
+| GET | /api/v1/incidents/:id/shipments | dispatcher/agent-read | affected shipment records |
 | GET | /api/v1/shipments/:id | authorized | shipment detail |
 | GET | /api/v1/vehicles/available | dispatcher/agent-read | candidate vehicles |
 | POST | /api/v1/recovery/simulate | dispatcher/agent-read | capacity/conflict check only |
@@ -57,7 +58,7 @@ type ExecuteRequest = { approvalId: string; planId: string; idempotencyKey: stri
 Agent tool gateway may expose aliases in `/api/agent/*`; map them to SAME business functions above, keeping role/scopes enforced.
 
 ## API conventions
-All mutation calls require request ID and `Idempotency-Key` (the UI may generate this). Return `{data, correlationId}` on success and `ApiError` on failure. HTTP: 200/201 success, 400 invalid, 401 unauthenticated, 403 forbidden, 404 unknown, 409 stale/duplicate conflict, 422 infeasible plan, 503 downstream unavailable. Never return private fields in customer response.
+Business mutation calls require `Idempotency-Key`. A valid `X-Request-ID` is returned as `correlationId`; otherwise the server generates one. Return `{data, correlationId}` on success and `ApiError` on failure. HTTP: 200/201 success, 400 invalid, 401 unauthenticated, 403 forbidden, 404 unknown, 409 stale/duplicate conflict, 422 infeasible plan, 503 downstream unavailable. Never return private fields in customer response.
 
 ## Critical transactional implementation
 On execution:

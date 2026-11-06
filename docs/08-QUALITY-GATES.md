@@ -44,16 +44,18 @@
 **G0** project compiles; lint/types pass. **G1** seed/reset deterministic and contracts agreed. **G2** domain/API tests green. **G3** actual Switch conversation + tool calls proven. **G4** all P0 steps pass manually twice from clean reset. **G5** full video recorded and readable. **G6** repo README reproducibility verified by a teammate not author.
 
 ## Current foundation commands
-The repository currently provides these checks (Node.js 22.6+):
+The repository provides these checks (Node.js 22.6+):
 
-- `npm install` — install the TypeScript compiler dependency.
-- `npm test` — run the fixture and read-only feasibility tests.
-- `npm run typecheck` — type-check the TypeScript source.
+- `npm install` — install the Next.js, Prisma, and TypeScript dependencies.
+- `npm test` — migrate an isolated SQLite test database and run domain plus API persistence/auth tests.
+- `npm run typecheck` — generate the Prisma client and type-check the app, services, and tests.
+- `npm run build` — generate Prisma client and build the Next.js App Router app.
+- `npm run reset:demo` / `npm run seed` — restore the deterministic pre-incident baseline.
+- `npm run smoke` — assert the persisted pre-incident fixture.
 
-These checks cover only the in-memory foundation; they do not validate persistence, HTTP authorization, UI flows, or Switch integration.
+These checks cover the foundation APIs but do not validate the full approval/execution workflow, UI role flows, or Switch integration.
 
-## Planned commands not implemented yet
-`npm run dev`, `npm run lint`, `npm run seed`, `npm run reset:demo`, and `npm run smoke` will be added as their application/database pieces land.
+`npm run dev` starts the Next.js app on port 3000 by default. `npm run lint` is not configured yet.
 
 ## Known risk prioritization
 P0 blockers: Switch not working, agent cannot reach API, approval execution broken, no driver/customer closure. P1: map glitch, replay charts, second agent, email integration. P2: fancy marketing page and charts.

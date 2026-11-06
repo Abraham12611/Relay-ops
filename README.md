@@ -4,7 +4,7 @@
 
 RelayOps is a hackathon-focused operational workflow demonstrating how dispatchers, drivers, customers and AI agents collaboratively recover a time-critical shipment after a vehicle breakdown. **Switch is the required collaboration layer**, connecting a real AI agent to a real Mattermost team room. The business application maintains shipments, cases, approvals, and event history.
 
-> Status: **foundation implementation started; this is not yet a runnable product**. Shared domain/API types, an immutable synthetic scenario, and read-only recovery feasibility checks are implemented. Persistence, HTTP routes, UI, and Switch connectivity remain unimplemented. Do not claim real Switch integration until tested.
+> Status: **runnable application foundation**. The Next.js App Router, SQLite persistence, authenticated demo personas, scoped agent read/proposal APIs, deterministic pre-incident reset, and recovery feasibility endpoints are implemented. The full approval/execution workflow, role-specific product screens, and Switch connectivity remain separate work. Do not claim real Switch integration until tested.
 
 ## Start here
 
@@ -42,12 +42,31 @@ A genuine Switch-mediated agent exchange, verified business API/tool calls, pers
 Requires Node.js 22.6 or newer. From the repository root:
 
 ```bash
+cp .env.example .env
+# Replace the demo and agent secret placeholders in .env with distinct random secrets.
 npm install
-npm test
-npm run typecheck
+npm run db:generate
+npm run db:migrate
+npm run reset:demo
+npm run dev
 ```
 
-The tests exercise the deterministic in-memory fixture and pure recovery checks. They do not start a web server, persist state, or prove a Switch/Mattermost connection. API routes, database migrations/seeding, UI, and the remaining planned scripts (`dev`, `lint`, `seed`, `reset:demo`, `smoke`) have not been implemented yet.
+The SQLite URL in `.env` is relative to `prisma/schema.prisma`; `file:../relayops.db` stores the database at the repository root. `npm run reset:demo` is destructive and restores the deterministic **PRE-INCIDENT** state: `VAN-014` is operational, its six shipments are `IN_TRANSIT`, and `INC-1042` does not exist. A driver breakdown report creates `INC-1042`, marks the vehicle broken, and moves those shipments to `AT_RISK`.
+
+Useful checks and data commands:
+
+```bash
+npm test                 # uses a separate relayops-test.db and runs API + domain tests
+npm run typecheck
+npm run build
+npm run seed              # migrate and seed/reset the demo baseline
+npm run reset:demo
+npm run smoke
+```
+
+Demo sessions are issued by `POST /api/v1/demo/session` only with `x-demo-operator-key`; role identity is carried in a signed, HTTP-only cookie and validated server-side. Agent endpoints use `x-agent-api-key` with separate read, proposal, and execution keys. Never expose these keys to browser code. All responses use `{ data, correlationId }` or the shared `ApiErrorResponse` envelope.
+
+Implemented routes: `GET /api/v1/health`, demo session/state/reset, incident create/list/detail/affected shipments, shipment detail, available vehicles, recovery simulation, and version-checked recovery proposals. Approval lookup and recovery execution are not implemented by this foundation. API tests verify the driver report persists, duplicate requests dedupe, version conflicts are rejected, and state survives separate reads. They do not prove a Switch/Mattermost connection or the full end-to-end approval workflow.
 
 ## Progress
 

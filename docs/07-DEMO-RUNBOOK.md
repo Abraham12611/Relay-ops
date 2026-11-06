@@ -4,11 +4,11 @@
 Show one uninterrupted incident from actual human input to genuine Switch-mediated agent collaboration and persisted customer outcome. **All shipments, drivers and metrics are fictitious.** Presentation should not imply production dispatch.
 
 ## Preflight (15 minutes before recording)
-- [ ] `main` HEAD checked out, install successful, DB seeded/reset using documented command.
+- [ ] `develop` HEAD checked out, install successful, DB seeded/reset using documented command.
 - [ ] App opens /demo, customer tracking, /driver and /ops in separate browser profiles/tabs.
 - [ ] Mattermost and Switch Console running; connected agent responds in a real room.
 - [ ] Agent service can reach `APP_BASE_URL` and secret is not exposed in browser.
-- [ ] Endpoints health checks green; case INC-1042 absent/open in expected seed baseline.
+- [ ] Endpoints health checks green; `INC-1042` is absent after reset and becomes open only after the driver reports the breakdown.
 - [ ] Screen recording audio and text zoom tested, no account tokens visible.
 - [ ] Local time and seed fixtures deterministic; stable link to the real room.
 - [ ] Backup: screenshots from successful authentic rehearsal + separate narrated video segment if live connection falls over; **never stage fake chat as a real integration**.

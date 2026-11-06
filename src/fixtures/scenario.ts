@@ -70,7 +70,7 @@ const shipments: readonly Shipment[] = [
     customerId: "USR-CUSTOMER-01",
     assignedDriverId: "DRV-014",
     assignedVehicleId: "VAN-014",
-    status: "AT_RISK" as const,
+    status: "IN_TRANSIT" as const,
     proofOfDeliveryRef: null,
   })),
   {
@@ -103,7 +103,7 @@ const scenario = {
       code: "VAN-014",
       capacityUnits: 12,
       occupiedUnits: 12,
-      status: "BROKEN_DOWN",
+      status: "AVAILABLE",
       locationLat: 6.5244,
       locationLng: 3.3792,
     },
@@ -136,25 +136,8 @@ const scenario = {
     },
   ],
   shipments,
-  incidents: [
-    {
-      id: "INC-1042",
-      type: "BREAKDOWN",
-      vehicleId: "VAN-014",
-      reporterId: "USR-DRIVER-014",
-      severity: "CRITICAL",
-      status: "OPEN",
-      summary: "Synthetic vehicle breakdown affecting six deliveries.",
-      createdAt: SEEDED_AT,
-      resolvedAt: null,
-      currentPlanId: null,
-    },
-  ],
-  incidentShipments: affectedShipments.map((shipment) => ({
-    incidentId: "INC-1042",
-    shipmentId: shipment.id,
-    originalStatus: "IN_TRANSIT" as const,
-  })),
+  incidents: [],
+  incidentShipments: [],
   recoveryPlans: [],
   approvals: [],
   assignments: [
@@ -163,7 +146,7 @@ const scenario = {
       shipmentId: shipment.id,
       driverId: "DRV-014",
       vehicleId: "VAN-014",
-      incidentId: "INC-1042",
+      incidentId: null,
       status: "ACCEPTED" as const,
     })),
     {
@@ -175,28 +158,14 @@ const scenario = {
       status: "ACCEPTED",
     },
   ],
-  events: [
-    {
-      id: "EVT-1042-001",
-      caseId: "INC-1042",
-      shipmentId: null,
-      actorType: "SYSTEM",
-      actorId: "SYSTEM",
-      type: "SCENARIO_SEEDED",
-      visibility: "INTERNAL",
-      payload: { synthetic: true, fixture: "INC-1042" },
-      createdAt: SEEDED_AT,
-      correlationId: "SEED-INC-1042",
-      idempotencyKey: null,
-    },
-  ],
+  events: [],
   notifications: [],
   idempotencyRecords: [],
 } as const satisfies DemoScenario;
 
 /**
- * Immutable, synthetic baseline for contract tests and later persistence seeding.
- * It is not a live database or a claim of a completed Switch integration.
+ * Immutable, synthetic pre-incident baseline for contract tests and persistence seeding.
+ * Reporting the breakdown creates INC-1042; reset itself does not create an incident.
  */
 export const DEMO_SCENARIO: DeepReadonly<typeof scenario> = deepFreeze(scenario);
 

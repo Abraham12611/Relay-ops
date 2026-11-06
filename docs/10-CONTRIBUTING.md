@@ -9,7 +9,7 @@
 6. Registered team maximum is four under the official hackathon rules; assign work accordingly.
 
 ## Branch and PR
-Branch `feat/eNN-short-title` / `fix/eNN-short-title`. PR title `[E07] Add approved recovery execution`.
+Branch `feat/eNN-short-title` / `fix/eNN-short-title`. Target pull requests to `develop`, never `main`. PR title `[E07] Add approved recovery execution`.
 PR body:
 ```md
 Ticket: E07
