@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createOpsApi, OpsApiError } from "./ops-api.js";
-import { canDecideRecoveryPlan, escapeHtml, fetchIncidentEvents, filterIncidents, formatDate, getCollection, getExecutionReceipt, getRoute, normalizeCaseResponse, unwrapData } from "./ops.js";
+import { canDecideRecoveryPlan, escapeHtml, fetchIncidentEvents, filterIncidents, formatDate, getCollection, getExecutionReceipt, getRoute, isHealthHealthy, normalizeCaseResponse, unwrapData } from "./ops.js";
 
 const incidents = [
   { id: "INC-1042", summary: "Critical van breakdown", severity: "CRITICAL", status: "AWAITING_APPROVAL" },
@@ -25,6 +25,12 @@ test("API envelopes and queue filters are handled without changing source record
   assert.deepEqual(filterIncidents(incidents, { query: "breakdown", severity: "CRITICAL" }), [incidents[0]]);
   assert.deepEqual(filterIncidents(incidents, { status: "OPEN" }), [incidents[1]]);
   assert.equal(incidents[0].status, "AWAITING_APPROVAL");
+});
+
+test("operations health accepts the foundation API health payload", () => {
+  assert.equal(isHealthHealthy({ status: "ok", database: "healthy" }), true);
+  assert.equal(isHealthHealthy({ status: "healthy" }), true);
+  assert.equal(isHealthHealthy({ status: "unavailable", database: "down" }), false);
 });
 
 test("approval controls are limited to the current, feasible, fully identified proposal", () => {
