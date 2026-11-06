@@ -10,6 +10,16 @@ export function unwrapData(payload) {
   return payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
 }
 
+export function isHealthHealthy(payload) {
+  const status = String(payload?.status ?? "").toLowerCase();
+  const database = payload?.database;
+  return status === "healthy"
+    || status === "ok"
+    || payload?.healthy === true
+    || database?.healthy === true
+    || (typeof database === "string" && database.toLowerCase() === "healthy");
+}
+
 export function getRoute(pathname) {
   const path = pathname.endsWith("/") ? pathname.slice(0, -1) || "/" : pathname;
   if (path === "/ops" || path === "/ops/index.html") return { name: "overview" };
@@ -444,7 +454,7 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
   async function refreshHealth() {
     try {
       const payload = unwrapData(await api.getHealth());
-      state.health = { available: payload?.status === "healthy" || payload?.healthy === true || payload?.database?.healthy === true, label: payload?.status ?? payload?.database?.status ?? "Health response received" };
+      state.health = { available: isHealthHealthy(payload), label: payload?.status ?? payload?.database?.status ?? "Health response received" };
     } catch {
       state.health = { available: false, label: "Health check failed" };
     }
@@ -454,7 +464,7 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
     const [incidentsResult, healthResult] = await Promise.allSettled([api.listIncidents(), api.getHealth()]);
     if (healthResult.status === "fulfilled") {
       const health = unwrapData(healthResult.value);
-      state.health = { available: health?.status === "healthy" || health?.healthy === true || health?.database?.healthy === true, label: health?.status ?? health?.database?.status ?? "Health response received" };
+      state.health = { available: isHealthHealthy(health), label: health?.status ?? health?.database?.status ?? "Health response received" };
     } else state.health = { available: false, label: "Health check failed" };
     if (incidentsResult.status === "rejected") throw incidentsResult.reason;
     return incidentItems(incidentsResult.value);
