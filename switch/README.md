@@ -1,85 +1,72 @@
-# Switch + RelayOps integration
+# Switch + RelayOps agent integration
 
 ## Verified status — 2026-11-06
 
-- **Switch Console / Mattermost:** not installed or connected in this Session. No live Switch server, Mattermost room, `relay-recovery` provider session, or human-to-agent reply has been observed. No chat screenshot or logs are claimed.
-- **Provider / agent:** none configured. The verified Switch docs list Claude Code, OpenCode, Codex, Cursor, and Antigravity as providers; the provider must be installed and signed in where the agent runs. No provider installation or sign-in was observed here.
-- **Business API:** no API server or endpoint is implemented/running in this checkout. `docs/05-DATA-API.md` is the contract only. E04 confirmed incident detail and the affected-shipment route shape for its in-progress implementation; approval-read and execution endpoints are still missing.
-- **Tool gateway:** the typed adapter is implemented and unit-tested against the documented routes. `getApproval` and execution fail closed without an authenticated approval reader. A real API request has not been made.
-- **Environment observed:** Reason cloud Linux; Node.js `v22.23.4`, npm `10.9.9`. `docker --version` and `docker compose version` both returned `command not found`; no Switch Console/server was running or connected, and its version is unknown. `RELAYOPS_API_BASE_URL`, `RELAYOPS_REQUEST_ID_HEADER`, `AGENT_READ_API_KEY`, `AGENT_PROPOSE_API_KEY`, and `AGENT_EXECUTE_API_KEY` were unset, and no matching Workspace secrets were present. The checkout has no running RelayOps service.
+- **Switch / Mattermost:** no Switch Console, Gateway, Mattermost server, `relayops-dispatch` room, connected provider, or human-to-agent exchange was available in the Reason cloud environment. No live chat evidence is claimed.
+- **Provider:** none is installed or signed in here. Switch's official docs list Claude Code, Codex, Cursor, OpenCode, and Antigravity as supported providers.
+- **RelayOps API:** no API process or usable API credentials were configured in this checkout. The fetched `develop` tree does not contain the backend recovery endpoints; Engineer 1's PR #12 is separate and unmerged. I installed its backend dependencies and applied its SQLite migration in an isolated scratch worktree, but could not start the HTTP server because the shared cloud had reached its preview-server limit. No authenticated HTTP request was made. Engineer 6 confirmed the approval-read and execution contracts; those service behaviors remain unverified here.
+- **Adapter:** the HTTP client now authenticates with `x-agent-api-key`, sends `X-Request-ID` on every outgoing request (including reads), and keeps `Idempotency-Key` on business mutations. The API returns a valid request ID as `correlationId`. Approval reads use the agreed `GET /api/v1/recovery/approvals/:planId` route; execution remains subject to the API's atomic revalidation.
+- **Switch registration:** `switch/relayops-mcp.mjs` implements a local MCP stdio server over the typed RelayOps tool gateway. It is intended to be added as an MCP server in the chosen provider's own configuration, not registered through an undocumented Switch endpoint. No live provider loaded this MCP server in this environment.
+- **Environment:** Reason cloud Linux, Node.js `v22.23.4`, npm `10.9.9`. `docker --version` and `docker compose version` both returned `command not found`. `RELAYOPS_API_BASE_URL`, `RELAYOPS_REQUEST_ID_HEADER`, and the read/propose/execute API credentials were unset; no Workspace secrets were available. The isolated test keys and worktree were removed after the server could not be started.
 
-The Switch and API checks are separate milestones: no room connectivity is claimed, and the API adapter does not imply that an API exists.
+The code and the live proof are separate milestones. The mocked tests verify adapter behavior; they do not prove an authenticated API call, Switch setup, or Mattermost communication.
 
-## Official setup references
+## Why the adapter is an MCP server
 
-Use the current official instructions for the installed release; do not copy undocumented Switch endpoints or authentication details into configuration:
+The official Switch [onboarding guide](https://docs.switchagents.ai/switch-rooms/getting-started/onboard-your-agents) says the agent can use the provider's existing setup, including MCP servers. [Sessions and the runtime](https://docs.switchagents.ai/switch-rooms/internals/connectors-and-runtime) says Switch starts the selected provider and gives it Switch's own MCP tools; the provider's other MCP servers are not Switch operations. The [agent settings guide](https://docs.switchagents.ai/switch-rooms/getting-started/agent-settings) describes tool restrictions but does not document an API for adding custom Switch operations. Therefore RelayOps uses a provider-configured MCP server; this repository does not invent a Switch Gateway endpoint or use the agent-client registration API as a custom-tool API.
 
-- [Install Switch Console](https://docs.switchagents.ai/switch-rooms/getting-started/install-switch-console)
-- [Add a server](https://docs.switchagents.ai/switch-rooms/getting-started/add-a-server)
-- [Set up agent providers](https://docs.switchagents.ai/switch-rooms/getting-started/set-up-agent-providers)
-- [Create a room](https://docs.switchagents.ai/switch-rooms/getting-started/create-a-room)
-- [Connect Mattermost](https://docs.switchagents.ai/switch-rooms/deploy/messaging-apps/mattermost)
-- [Troubleshooting](https://docs.switchagents.ai/switch-rooms/resources/troubleshooting)
+Configure the server in the provider's documented MCP configuration with this launch command from the repository root:
 
-The official install page lists Linux x86_64 as early access. For Debian/Ubuntu, its documented package command is `sudo apt install ./switch-console-amd64.deb`; it also documents the AppImage flow as `chmod +x switch-console-x86_64.AppImage` followed by `./switch-console-x86_64.AppImage`. Neither command was run here. Switch Console's local server requires Docker; Console starts its own stack, including Mattermost and Gateway, chooses available ports, creates the admin account, and signs in. No custom Compose file or guessed server route is required.
+```text
+node --experimental-strip-types --disable-warning=ExperimentalWarning switch/relayops-mcp.mjs
+```
 
-The official provider guide says to install the provider CLI using that provider's instructions, sign it in, then confirm Switch reports **Signed in** under Settings → Agent providers. Switch starts the agent on its configured host; use the host where the provider is installed and signed in.
+The provider launches it over stdio. Its MCP configuration must supply `RELAYOPS_API_BASE_URL` and the scoped RelayOps keys in the MCP server's own environment block. Switch passes only a fixed set of environment variables to the agent, so do not rely on arbitrary shell variables being inherited. Keep those values in the provider's user-level configuration or secret store, never in this repository, project-level MCP configuration, agent instructions, or room messages. If `RELAYOPS_REQUEST_ID_HEADER` is set, it must be `x-request-id`; the adapter defaults to `X-Request-ID` when it is absent or blank.
 
-When Switch Console creates the Mattermost server, its connection is already set up. Each agent appears in Mattermost as its own bot account and joins the channel as a normal member. The official Mattermost guide says Switch initiates the connection, so the Mattermost server does not need a public inbound endpoint. For a Mattermost server managed separately, follow its documented bot-account, admin, team-slug, and connection setup; do not copy local bundled-server credentials into chat.
+Use an API origin reachable from the agent process. Plain HTTP is accepted only for loopback; use HTTPS for a remote host. In provider/agent tool restrictions, keep the RelayOps MCP tools available. Verify the provider reports signed in and the agent can call `getIncident` before claiming integration.
 
-## Reproduce the real room milestone
+## RelayOps credentials and contracts
 
-These are the official UI steps to run once Docker, Switch Console, and a signed-in provider are available; they were **not** completed in the current environment:
+Use distinct server-side keys:
 
-1. Install Docker for the host OS using [Docker's official install guide](https://docs.docker.com/get-started/get-docker/), then install and open Switch Console.
-2. In the Console setup checklist, choose **Add a server → Run a server on this computer**. Wait for its local Switch server and bundled Mattermost to report running.
-3. Install and authenticate one supported agent provider on the configured agent host. Register one agent named `relay-recovery`, give it the RelayOps working directory, and load [the agent instructions](agent-system-instructions.md).
-4. Use Switch's documented [Create a room](https://docs.switchagents.ai/switch-rooms/getting-started/create-a-room) flow for `relayops-dispatch`. Select Mattermost, add `relay-recovery`, and include a real human dispatcher; link the human's Mattermost account when prompted.
-5. In the real channel, send a human message such as `@relay-recovery investigate INC-1042 and report the affected shipments. Do not execute anything.` Capture the actual reply and verify that it names the returned case ID. Do not use a mock chat or a fabricated screenshot.
+- `AGENT_READ_API_KEY` — incident, shipment, vehicle, simulation, and persisted approval reads.
+- `AGENT_PROPOSE_API_KEY` — versioned plan proposals.
+- `AGENT_EXECUTE_API_KEY` — approved execution only.
 
-Record exact Console, Docker, provider, and server versions only after installation. Keep the observed setup date and redacted evidence with the project; none is available yet.
+The adapter sends the selected key as `x-agent-api-key`; it does not send a bearer `Authorization` header. Every API request gets a generated UUID in `X-Request-ID`. The server is the authority for authorization, plan version/hash, expiry, consumption, capacity, and idempotency. Chat text such as “approved” is never an approval source.
 
-## API access, scopes, and networking
+Engineer 6 confirmed this contract:
 
-The Switch runtime must reach `RELAYOPS_API_BASE_URL` from the agent's own host. Use an address routable from that runtime; `localhost` inside a separate container/remote agent may refer to the agent itself, not the RelayOps host. Use HTTPS away from loopback. The adapter accepts only an origin URL and sends credentials only in an Authorization header; never put keys in room messages, prompts, client bundles, source control, or logs.
+- `GET /api/v1/recovery/approvals/:planId` is a read-scope route and returns the persisted approval's `planId`, `planHash`, `planVersion`, decision/status, dispatcher identity/timestamp, expiry, consumed time, and reason in the `{data, correlationId}` envelope. A missing approval is a `404`.
+- `POST /api/v1/recovery/execute` accepts `{approvalId, planId, idempotencyKey}` with `X-Request-ID` and `Idempotency-Key`, and is agent-execute-only. The service must atomically recheck dispatcher provenance, exact current plan hash/version, expiry, consumption, shipment state, and capacity; the returned receipt includes the assignment/case/event IDs and resulting status.
 
-Configure three distinct server-side credentials:
+The execution service was not yet available in the checked-out `develop` branch, so its runtime behavior remains unverified. The adapter validates the read approval record before requesting execution, and the business service must independently enforce the transaction invariants.
 
-- `AGENT_READ_API_KEY` — `agent-read` for incident, affected-shipment, vehicle, simulation, and status reads.
-- `AGENT_PROPOSE_API_KEY` — `agent-propose` for versioned plan proposals.
-- `AGENT_EXECUTE_API_KEY` — `agent-execute` for a business-authorized execution only.
+## Reproduce a real Switch room
 
-Mutations require a request ID and `Idempotency-Key`; E04 has not confirmed the request-ID header name. The adapter requires `RELAYOPS_REQUEST_ID_HEADER` to be explicitly configured before it will send plan or execution writes; the tests use `X-Request-ID` only as an injected fixture, not as a claimed server contract. The API remains the authority and must validate the current plan version/hash, dispatcher role, expiry, single-use approval, capacity, and idempotency transactionally. A room message saying “approved” never authorizes execution. Do not bind an execution tool until `getApproval` is backed by the business application's authenticated authorization lookup.
+Use the current official [Switch Console installation](https://docs.switchagents.ai/switch-rooms/getting-started/install-switch-console), [provider setup](https://docs.switchagents.ai/switch-rooms/getting-started/set-up-agent-providers), [room creation](https://docs.switchagents.ai/switch-rooms/getting-started/create-a-room), and [Mattermost connection](https://docs.switchagents.ai/switch-rooms/deploy/messaging-apps/mattermost) guides for the installed release. Linux x86_64 availability is release-dependent; follow the official host/platform requirements rather than assuming this cloud image supports the Console.
 
-Current adapter route mapping (the API service is not yet running):
+1. On a supported host with Docker installed, install and open Switch Console, then use its documented **Add a server** flow to start a Switch server and bundled Mattermost.
+2. Install one supported provider and sign it in. Add the RelayOps MCP stdio server to that provider's own MCP configuration, supplying the API origin and scoped keys through a user-level environment block.
+3. In Switch Console, onboard `relay-recovery` with this repository as its working directory and the instructions in [agent-system-instructions.md](agent-system-instructions.md). Verify the provider is signed in and retain access to the provider's MCP tools.
+4. Create `relayops-dispatch` through Switch's room UI with the agent and a real, linked human dispatcher.
+5. In Mattermost, send a human request such as `@relay-recovery investigate INC-1042 and report affected shipments; do not execute anything`. Capture the actual human message and agent reply, then verify a tool result against the API response and its request ID. Do not stage a mock chat or screenshot.
 
-| Tool | Business API mapping / state |
-|---|---|
-| `getIncident(caseId)` | `GET /api/v1/incidents/:id` |
-| `getAffectedShipments(caseId)` | E04-confirmed planned `GET /api/v1/incidents/:id/shipments`; implementation pending |
-| `getAvailableVehicles(caseId)` | `GET /api/v1/vehicles/available` |
-| `simulateReassignment(input)` | `POST /api/v1/recovery/simulate` (read-only feasibility) |
-| `proposeRecovery(input)` | `POST /api/v1/recovery/plans` (`agent-propose`) |
-| `getApproval(planId)` | no read route/DTO documented; adapter reports unavailable |
-| `executeApprovedReassignment(input)` | business execute route is planned, but no endpoint or approval read is available; adapter fails closed |
-| `getRecoveryStatus(caseId)` | `GET /api/v1/incidents/:id` (current status/version) |
+Switch's standard agent registration, connection, and operations endpoints are for a client implementing the Switch agent protocol; this RelayOps MCP server is not such a client. Use the official protocol only if building a custom agent client becomes necessary.
 
-No Switch webhook, Mattermost posting API, custom agent protocol endpoint, or room automation is assumed here. For the MVP, a human may post the case ID manually to the real room after the app exists.
-
-## Checks and troubleshooting
-
-Commands actually run in the cloud environment:
+## Checks and blockers
 
 ```text
 node --version                 v22.23.4
 npm --version                  10.9.9
 docker --version               command not found
 docker compose version         command not found
-npm ci --ignore-scripts          passed (1 locked package; 0 vulnerabilities)
-npm test                         passed (21 tests)
-npm run typecheck                passed
+npm test                       passed (28 passed, 4 skipped)
+npm run typecheck              passed
+git diff --check               passed
+MCP stdio startup smoke        passed (8 tools listed; protocol 2025-06-18)
+live agent API GET             skipped: no reachable server; shared preview-server capacity was full
+Switch/Mattermost human reply  not run: Console/provider/server unavailable
 ```
 
-The adapter tests use an injected fetch stub; they do not prove live API reachability. If Docker is missing, install it from the official guide before trying **Run a server on this computer**. If the Console cannot reach a Mattermost button callback, use the official troubleshooting guide to check the Callback Base URL and Mattermost's internal-host allowlist. If a provider row says **CLI not installed**, install the provider CLI and refresh; if it says **Not signed in**, complete that provider's own sign-in. For a remote agent/API connection, verify the API origin from the agent host itself and avoid assuming host `localhost` crosses container or machine boundaries.
-
-This Session could not test the Console, Mattermost, provider sign-in, room membership, human reply, API network reachability, or any live tool request: Docker/Console/provider/API were unavailable. The adapter unit tests are not a substitute for that live proof.
+The unit tests use an injected fetch stub, and the MCP tests exercise local protocol messages. Neither is live service evidence. `tests/relayops-agent-tools.integration.test.mjs` runs only when `RELAYOPS_API_BASE_URL` and `AGENT_READ_API_KEY` are set; run it against a real server with `npm test` and inspect its result. The current cloud needs a supported host with Docker + Switch Console, one signed-in provider, a real Mattermost room/human account, a running RelayOps API with the three scoped keys, and an API address reachable from the provider process before the live workflow can be demonstrated.

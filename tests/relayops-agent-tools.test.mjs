@@ -6,7 +6,7 @@ import {
   RelayOpsApiError,
   RelayOpsApprovalError,
   RelayOpsCredentialError,
-  RelayOpsToolUnavailableError,
+  RelayOpsProtocolError,
 } from "../src/agent/relayops-api.ts";
 import { createRelayRecoveryTools } from "../src/agent/relayops-tool-gateway.ts";
 
@@ -20,8 +20,7 @@ function envelope(data, correlationId = "corr-test") {
 function makeApi({
   responses = [],
   credentials = { read: "test-read", propose: "test-propose", execute: "test-execute" },
-  approvalReader,
-  requestIdHeaderName,
+  createId,
   baseUrl = "https://relayops.example.test",
   now = () => Date.parse("2026-11-06T18:00:00.000Z"),
 } = {}) {
@@ -30,10 +29,8 @@ function makeApi({
   const api = new RelayOpsApi({
     baseUrl,
     credentials,
-    approvalReader,
     now,
-    createId: () => `test-id-${++id}`,
-    ...(requestIdHeaderName !== undefined ? { requestIdHeaderName } : {}),
+    createId: createId ?? (() => `test-id-${++id}`),
     fetch: async (url, init) => {
       calls.push({ url: new URL(url), init });
       const response = responses.shift();
@@ -64,6 +61,7 @@ const approval = {
   id: "APR-1",
   planId: "PLAN-1",
   planHash: "hash-1",
+  planVersion: 1,
   status: "APPROVED",
   approvedBy: "USR-DISPATCHER-01",
   approvedAt: "2026-11-06T17:45:00.000Z",
@@ -79,8 +77,9 @@ test("getIncident uses the documented route and read-only scope", async () => {
   assert.equal(result.id, "INC-1042");
   assert.equal(calls[0].url.pathname, "/api/v1/incidents/INC-1042");
   assert.equal(calls[0].init.method, "GET");
-  assert.equal(calls[0].init.headers.get("Authorization"), "Bearer test-read");
-  assert.equal(calls[0].init.headers.get("X-Request-ID"), null);
+  assert.equal(calls[0].init.headers.get("x-agent-api-key"), "test-read");
+  assert.equal(calls[0].init.headers.get("Authorization"), null);
+  assert.equal(calls[0].init.headers.get("X-Request-ID"), "test-id-1");
   assert.equal(calls[0].init.headers.get("Idempotency-Key"), null);
 });
 
@@ -90,6 +89,8 @@ test("getAffectedShipments uses the E04-confirmed route and validates case ident
 
   assert.deepEqual(await api.getAffectedShipments("INC-1042"), shipments);
   assert.equal(calls[0].url.pathname, "/api/v1/incidents/INC-1042/shipments");
+  assert.equal(calls[0].init.headers.get("x-agent-api-key"), "test-read");
+  assert.equal(calls[0].init.headers.get("X-Request-ID"), "test-id-1");
 });
 
 test("getAvailableVehicles follows the documented collection route without inventing a case query", async () => {
@@ -98,6 +99,8 @@ test("getAvailableVehicles follows the documented collection route without inven
 
   assert.equal(calls[0].url.pathname, "/api/v1/vehicles/available");
   assert.equal(calls[0].url.search, "");
+  assert.equal(calls[0].init.headers.get("x-agent-api-key"), "test-read");
+  assert.equal(calls[0].init.headers.get("X-Request-ID"), "test-id-1");
 });
 
 test("simulateReassignment is a typed read-scope POST and does not claim a mutation key", async () => {
@@ -107,7 +110,9 @@ test("simulateReassignment is a typed read-scope POST and does not claim a mutat
 
   assert.deepEqual(await api.simulateReassignment(input), feasibility);
   assert.equal(calls[0].url.pathname, "/api/v1/recovery/simulate");
-  assert.equal(calls[0].init.headers.get("Authorization"), "Bearer test-read");
+  assert.equal(calls[0].init.headers.get("x-agent-api-key"), "test-read");
+  assert.equal(calls[0].init.headers.get("Authorization"), null);
+  assert.equal(calls[0].init.headers.get("X-Request-ID"), "test-id-1");
   assert.deepEqual(JSON.parse(calls[0].init.body), input);
   assert.equal(calls[0].init.headers.get("Idempotency-Key"), null);
 });
@@ -123,75 +128,116 @@ test("proposeRecovery uses the separate propose scope and an idempotency key", a
     expectedIncidentVersion: 1,
   };
   const proposal = { id: "PLAN-1", incidentId: "INC-1042", version: 1, hash: "hash-1", status: "PROPOSED", feasibility: { eligible: true, capacityOk: true, conflicts: [] } };
-  const { api, calls } = makeApi({
-    requestIdHeaderName: "X-Request-ID",
-    responses: [envelope(proposal)],
-  });
+  const { api, calls } = makeApi({ responses: [envelope(proposal)] });
 
   assert.equal((await api.proposeRecovery(proposalInput)).id, "PLAN-1");
   assert.equal(calls[0].url.pathname, "/api/v1/recovery/plans");
-  assert.equal(calls[0].init.headers.get("Authorization"), "Bearer test-propose");
+  assert.equal(calls[0].init.headers.get("x-agent-api-key"), "test-propose");
+  assert.equal(calls[0].init.headers.get("Authorization"), null);
   assert.equal(calls[0].init.headers.get("Idempotency-Key"), "test-id-1");
   assert.equal(calls[0].init.headers.get("X-Request-ID"), "test-id-2");
 });
 
-test("writes fail closed until the API request-ID header is explicitly configured", async () => {
-  const { api, calls } = makeApi();
-  await assert.rejects(
-    api.proposeRecovery({
-      incidentId: "INC-1042",
-      shipmentId: "MED-2048",
-      targetDriverId: "DRV-009",
-      targetVehicleId: "VAN-009",
-      newEtaAt: "2026-11-06T18:22:00.000Z",
-      rationale: "test",
-      expectedIncidentVersion: 1,
-    }),
-    RelayOpsToolUnavailableError,
-  );
+test("request IDs are validated before any API call", async () => {
+  const { api, calls } = makeApi({ createId: () => "bad request id" });
+  await assert.rejects(api.getAvailableVehicles("INC-1042"), RelayOpsApiConfigurationError);
   assert.equal(calls.length, 0);
+});
+
+test("the request-ID header cannot diverge from the backend contract", () => {
+  assert.throws(
+    () => new RelayOpsApi({
+      baseUrl: "https://relayops.example.test",
+      credentials: {},
+      requestIdHeaderName: "X-Correlation-ID",
+    }),
+    RelayOpsApiConfigurationError,
+  );
 });
 
 test("getRecoveryStatus reads the documented incident detail instead of guessing a status route", async () => {
   const { api, calls } = makeApi({ responses: [envelope(incidentDetail)] });
   assert.equal((await api.getRecoveryStatus("INC-1042")).version, 1);
   assert.equal(calls[0].url.pathname, "/api/v1/incidents/INC-1042");
+  assert.equal(calls[0].init.headers.get("X-Request-ID"), "test-id-1");
 });
 
-test("approval lookup and execution fail closed without a business-application reader", async () => {
-  const { api, calls } = makeApi();
-  await assert.rejects(api.getApproval("PLAN-1"), RelayOpsToolUnavailableError);
+test("getApproval uses the authenticated approval-read route and validates its plan binding", async () => {
+  const { api, calls } = makeApi({ responses: [envelope(approval)] });
+  const result = await api.getApproval("PLAN-1");
+
+  assert.equal(result.id, "APR-1");
+  assert.equal(result.planVersion, 1);
+  assert.equal(calls[0].url.pathname, "/api/v1/recovery/approvals/PLAN-1");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers.get("x-agent-api-key"), "test-read");
+  assert.equal(calls[0].init.headers.get("Authorization"), null);
+  assert.equal(calls[0].init.headers.get("X-Request-ID"), "test-id-1");
+});
+
+test("malformed persisted approval timestamps fail closed before execute", async () => {
+  const { api, calls } = makeApi({ responses: [envelope({ ...approval, approvedAt: "not-a-timestamp" })] });
   await assert.rejects(
     api.executeApprovedReassignment({ approvalId: "APR-1", planId: "PLAN-1", idempotencyKey: "once-1" }),
-    RelayOpsToolUnavailableError,
+    RelayOpsProtocolError,
   );
-  assert.equal(calls.length, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.pathname, "/api/v1/recovery/approvals/PLAN-1");
 });
 
-test("execution requires an unconsumed current business approval before posting", async () => {
-  const executeReceipt = { assignmentId: "ASG-1", shipmentId: "MED-2048", caseId: "INC-1042", eventId: "EVT-1", resultingStatus: "REASSIGNED" };
-  const { api, calls } = makeApi({
-    approvalReader: async (planId) => ({ ...approval, planId }),
-    requestIdHeaderName: "X-Request-ID",
-    responses: [envelope(executeReceipt)],
-  });
+test("a missing approval never reaches the execute route", async () => {
+  const missingApproval = new Response(JSON.stringify({
+    error: { code: "APPROVAL_NOT_FOUND", message: "No approval", correlationId: "corr-missing" },
+  }), { status: 404, headers: { "content-type": "application/json" } });
+  const { api, calls } = makeApi({ responses: [missingApproval] });
+  await assert.rejects(
+    api.executeApprovedReassignment({ approvalId: "APR-1", planId: "PLAN-1", idempotencyKey: "once-1" }),
+    (error) => error instanceof RelayOpsApiError && error.status === 404,
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.pathname, "/api/v1/recovery/approvals/PLAN-1");
+});
+
+test("execution reads persisted approval before posting and validates the exact execution receipt", async () => {
+  const executeReceipt = {
+    id: "EXEC-1",
+    status: "EXECUTED",
+    planId: "PLAN-1",
+    planHash: "hash-1",
+    planVersion: 1,
+    approvalId: "APR-1",
+    assignmentId: "ASG-1",
+    shipmentId: "MED-2048",
+    caseId: "INC-1042",
+    eventId: "EVT-1",
+    resultingStatus: "REASSIGNED",
+    executedAt: "2026-11-06T18:00:00.000Z",
+  };
+  const { api, calls } = makeApi({ responses: [envelope(approval), envelope(executeReceipt)] });
   const result = await api.executeApprovedReassignment({ approvalId: "APR-1", planId: "PLAN-1", idempotencyKey: "once-1" });
 
   assert.equal(result.assignmentId, "ASG-1");
-  assert.equal(calls[0].url.pathname, "/api/v1/recovery/execute");
-  assert.equal(calls[0].init.headers.get("Authorization"), "Bearer test-execute");
-  assert.equal(calls[0].init.headers.get("Idempotency-Key"), "once-1");
+  assert.equal(result.planVersion, 1);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url.pathname, "/api/v1/recovery/approvals/PLAN-1");
+  assert.equal(calls[0].init.headers.get("x-agent-api-key"), "test-read");
+  assert.equal(calls[0].init.headers.get("X-Request-ID"), "test-id-1");
+  assert.equal(calls[1].url.pathname, "/api/v1/recovery/execute");
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].init.headers.get("x-agent-api-key"), "test-execute");
+  assert.equal(calls[1].init.headers.get("Authorization"), null);
+  assert.equal(calls[1].init.headers.get("X-Request-ID"), "test-id-2");
+  assert.equal(calls[1].init.headers.get("Idempotency-Key"), "once-1");
 });
 
 test("rejected or expired approvals never reach execute", async () => {
-  const { api, calls } = makeApi({
-    approvalReader: async (planId) => ({ ...approval, planId, status: "EXPIRED" }),
-  });
+  const { api, calls } = makeApi({ responses: [envelope({ ...approval, status: "EXPIRED" })] });
   await assert.rejects(
     api.executeApprovedReassignment({ approvalId: "APR-1", planId: "PLAN-1", idempotencyKey: "once-1" }),
     RelayOpsApprovalError,
   );
-  assert.equal(calls.length, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.pathname, "/api/v1/recovery/approvals/PLAN-1");
 });
 
 test("the gateway exposes only the fixed, typed tool set", async () => {
