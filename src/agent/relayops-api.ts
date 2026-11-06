@@ -294,7 +294,7 @@ export class RelayOpsApi {
     const token = this.credentialsFor(options.scope);
     const headers = new Headers({
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
+      "X-Agent-API-Key": token,
     });
     const init: RequestInit = { method: options.method, headers };
 

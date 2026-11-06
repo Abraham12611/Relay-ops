@@ -1,71 +1,55 @@
 # Demo reliability and rehearsal gate
 
-This checklist supplements [the demo runbook](07-DEMO-RUNBOOK.md), [quality gates](08-QUALITY-GATES.md), the workflow contract (03-WORKFLOWS.md), and the API contract (05-DATA-API.md). It does not claim that the application server, persistence, UI, or Switch integration exists until those components are actually exercised.
+This checklist supplements the [demo runbook](07-DEMO-RUNBOOK.md), [quality gates](08-QUALITY-GATES.md), workflow contract (03-WORKFLOWS.md), and API contract (05-DATA-API.md). It separates verified Next.js/SQLite foundation behavior from the still-unverified full approval, delivery, UI, and Switch workflow.
 
-## Automated commands
+## Local checks and deterministic reset
 
-Node.js 22.6+ is required. Install the exact lockfile dependencies first:
+Node.js 22.6+ is required. From a clean checkout:
 
 ```bash
 npm ci
 npm test
 npm run typecheck
+npm run build
+npm run seed
+npm run reset:demo
+npm run smoke:foundation
 ```
 
-`npm test` runs deterministic local fixture/feasibility tests and reports the live API contract tests as **skipped**. They run only through `npm run test:integration`, which requires all integration variables and explicitly opts into mutating the configured demo service; a skipped integration test is not a pass. Run:
+`npm test` exercises the SQLite-backed API persistence/authorization tests, the deterministic domain tests, and the scoped agent adapter tests. The three live API-contract tests are skipped unless explicitly enabled with `npm run test:integration`; a skipped test is not a pass. `npm run seed` and `npm run reset:demo` mutate the local SQLite database. The `smoke:foundation` check confirms the deterministic **PRE-INCIDENT** baseline: `VAN-014` is operational, its six assigned shipments are `IN_TRANSIT`, and `INC-1042` does not exist.
+
+The actual driver breakdown report creates `INC-1042`, marks `VAN-014` broken, and changes those six affected shipments to `AT_RISK`. The persistence tests verify that the incident, shipment changes, duplicate-request behavior, and optimistic version conflict survive separate database reads.
+
+## Optional live API checks
+
+Only run mutating checks against an isolated demo service. They use a demo operator key to issue signed persona cookies and separate read/propose/execute agent keys; all request IDs and credentials must stay out of logs and evidence. Configure these values in the local environment or a secret manager, never in source control:
 
 ```bash
 RELAYOPS_BASE_URL=http://127.0.0.1:3000 \
 RELAYOPS_DEMO_OPERATOR_TOKEN=... \
-RELAYOPS_DRIVER_014_TOKEN=... \
-RELAYOPS_DRIVER_009_TOKEN=... \
-RELAYOPS_DISPATCHER_TOKEN=... \
 RELAYOPS_AGENT_READ_TOKEN=... \
 RELAYOPS_AGENT_PROPOSE_TOKEN=... \
 RELAYOPS_AGENT_EXECUTE_TOKEN=... \
-RELAYOPS_CUSTOMER_TOKEN=... \
 npm run test:integration
 ```
 
-The ellipses above are placeholders, not usable credentials. Set each variable in the local environment or secret manager; never commit tokens, paste them into evidence, or capture them on screen. The harness uses bearer tokens, request IDs, and idempotency keys. It checks the API envelope and routes defined in `docs/05-DATA-API.md`.
+The ellipses above are placeholders, not usable credentials. `npm run reset:service` resets a configured running service through its authenticated API. This is separate from `npm run reset:demo`, which resets the local database directly.
 
-A verified deterministic reset is:
-
-```bash
-RELAYOPS_BASE_URL=http://127.0.0.1:3000 \
-RELAYOPS_DEMO_OPERATOR_TOKEN=... \
-npm run reset:demo
-```
-
-The reset command posts to the demo-only reset endpoint, fetches the resulting state, and verifies the fixed seed timestamp, open `INC-1042`, `MED-2048` / `TRK-2048`, available `VAN-009`, and exactly six linked shipments. It mutates the configured demo database; point it only at an isolated demo environment. Reset does not create fabricated evidence.
-
-One business-API smoke run is:
-
-```bash
-# Provide all variables from the integration-test command above.
-npm run smoke
-```
-
-The smoke script resets state, rejects broken/mismatched targets, reports the breakdown twice with one idempotency key, creates and revises a plan, rejects an unapproved and stale write, rejects agent self-approval, accepts only the dispatcher decision, repeats execution with the same key, verifies wrong-driver and pre-pickup delivery failures, completes backup-driver delivery, and checks the customer projection against internal event IDs and sensitive field names. It is direct API evidence, **not** proof of a live Switch conversation or a browser UI. Run `npm run smoke` twice separately; each run performs a fresh reset. Capture the console output from both actual runs, including any failure, without editing it into a success claim.
-
-The current checkout has no server routes, persistent database, or UI. Therefore live commands will not pass until those application components and role credentials are available. The source-only tests cannot establish API authorization or persistence behavior.
+`npm run smoke` is the live, end-to-end golden-path API harness. It mutates the configured service and expects approval lookup/decision, recovery execution, assignment lifecycle, and customer tracking endpoints. Those downstream workflow endpoints are not implemented by the foundation, so a full successful run is not currently available. Do not interpret it as a local smoke check or run it against production. Even after the complete API flow is implemented, a passing API run is not proof of an authentic Switch/Mattermost conversation or browser UI.
 
 ## Critical automated cases
 
-| Area | Automated assertion | Evidence boundary |
-|---|---|---|
-| Incident intake | Same idempotency key yields the same `INC-1042` and does not append a second event | Requires live API and driver token |
-| Capacity | Feasible seeded backup, broken vehicle rejected, mismatched driver/vehicle rejected | Local feasibility tests run now; API simulation waits for service |
-| Incident/plan state | Proposal awaits approval; dispatcher approval advances state; execution does not prematurely resolve remaining work | Requires live API |
-| Authorization | Execute without approval and agent approval attempt return 403; wrong driver cannot accept | Requires role-scoped live credentials |
-| Plan versioning | Reproposal increments version and changes hash; prior approval cannot execute | Requires live API |
-| Execution idempotency | Repeated execution key returns same assignment receipt | Requires persistence and live API |
-| Failure paths | Rejected/stale approval, broken target, wrong driver, delivery before pickup are rejected | Requires live API except local feasibility cases |
-| Customer projection | Delivered shipment is visible; internal event IDs and named private fields are absent | Current seed has no staff-note sentinel; the harness verifies hidden internal event IDs and forbidden field names, not a real note's text |
+- **Reset baseline:** No incident exists; `VAN-014` is operational; exactly six assigned shipments are `IN_TRANSIT`. The local seed/reset smoke and API persistence tests pass.
+- **Incident intake:** A driver breakdown creates `INC-1042`, breaks the van, marks six shipments `AT_RISK`, and deduplicates a repeated key. The local API persistence test passes; an externally deployed service was not exercised.
+- **Capacity:** Feasible backup, broken target rejection, mismatched driver/vehicle, exact-capacity and overload cases pass local domain/API tests.
+- **Plan versioning:** A proposal advances the incident version; stale expected versions return a conflict. The local API persistence test passes.
+- **Approval/execution:** Dispatcher-only approval, stale/rejected plan protection, single execution, and assignment receipt are not implemented in this foundation and require downstream API work.
+- **Customer projection:** Delivered shipment and private-field projection checks are not verified against an integrated customer route.
+- **Switch proof:** A real human message, agent response, business-tool call, and persisted receipt require an authentic Switch/Mattermost environment and evidence.
 
 ## Current blocker snapshot
 
-At this rehearsal-plan revision, the attached checkout contains only the typed fixture and read-only feasibility module; it has no runnable server, persistent store, reset route, or customer/driver/operations UI. Engineer 2 reports that no real Switch/Mattermost message, agent response, business-tool call, API reachability, or authentic evidence has been captured; their cloud environment has no Docker CLI/Compose or running Switch/API service, and the base URL plus agent credentials are unavailable. The API/service implementation is still in progress, and approval-read is not yet contracted, so execution remains fail-closed. No logs or screenshots are represented as successful evidence here. Recheck this section against actual E01/E02 service and room state before rehearsal; it is a blocker report, not an integration result.
+The Next.js App Router, Prisma/SQLite persistence, deterministic reset, signed server-enforced demo personas, scoped agent credentials, incident intake/list/detail, shipment reads, vehicle availability, recovery simulation, and version-checked recovery proposals are implemented and locally tested. Approval lookup and `POST /api/v1/recovery/execute` are not implemented. The full assignment/tracking journey, role-specific UI integration, and authentic Switch/Mattermost interaction remain unverified. The live integration suite was not run against an external service in this validation; local tests are not represented as end-to-end or Switch evidence.
 
 ## Golden-path operator checklist
 
@@ -75,16 +59,16 @@ Complete one row at a time for each run. Do not mark a row complete without obse
 
 - [ ] Record run number, date/time, branch/commit, operator, and target environment.
 - [ ] Confirm this is an isolated demo database and the operator is authorized to reset it.
-- [ ] Run `npm ci`, `npm test`, and `npm run typecheck`; retain unedited output.
-- [ ] Run `npm run reset:demo`; verify health and the expected deterministic fixture IDs and timestamp.
-- [ ] Confirm `INC-1042` is open, six affected shipments are linked, `MED-2048` is critical, and `VAN-009` / `DRV-009` are available/on duty.
+- [ ] Run `npm ci`, `npm test`, `npm run typecheck`, and `npm run build`; retain the unedited output.
+- [ ] Reset the database and verify PRE-INCIDENT state: no `INC-1042`, `VAN-014` available, six shipments `IN_TRANSIT`.
+- [ ] Confirm `MED-2048` is critical and `VAN-009` / `DRV-009` are available/on duty.
 - [ ] Open the demo, tracking, driver, and operations surfaces in separate profiles/tabs. Refresh at least one persisted view.
 - [ ] Verify Switch Console, Mattermost, the real `relayops-dispatch` room, connected agent, and agent-to-API reachability. Record versions and actual endpoint health; never infer these from configuration alone.
 - [ ] Verify recording display/audio, 1080p, readable text zoom, safe windows, no tokens, and a timestamped run record.
 
 ### Driver, Switch agent, dispatcher, backup driver, customer
 
-- [ ] **Original driver:** report the `VAN-014` breakdown once; record the returned incident ID and persisted incident event.
+- [ ] **Original driver:** submit the actual `VAN-014` breakdown report once; verify the returned `INC-1042`, broken vehicle, six `AT_RISK` shipments, and persisted incident event.
 - [ ] **Switch agent (authentic):** in the real room ask `relay-recovery` to investigate `INC-1042` and recommend a backup without executing. Capture the real human message, genuine agent response, and actual read/simulation tool evidence. Do not stage or edit chat.
 - [ ] **Switch agent:** verify affected shipment count, critical shipment, vehicle capacity/conflict evidence, proposed target `VAN-009` / `DRV-009`, plan ID/version/hash, and that no write occurred.
 - [ ] **Dispatcher:** inspect the same plan in the authenticated operations UI, challenge an assumption if feasible, then approve that exact current plan. Record the dispatcher actor and approval ID from persisted audit evidence.

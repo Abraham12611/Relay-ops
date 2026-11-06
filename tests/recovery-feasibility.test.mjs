@@ -1,7 +1,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEMO_SCENARIO, SEEDED_AT, getAffectedShipments } from "../src/fixtures/scenario.ts";
+import { DEMO_SCENARIO, SEEDED_AT } from "../src/fixtures/scenario.ts";
 import { simulateReassignment } from "../src/domain/recovery-feasibility.ts";
+
+const affectedShipments = DEMO_SCENARIO.shipments.filter(
+  ({ assignedVehicleId }) => assignedVehicleId === "VAN-014",
+);
+const recoveryScenario = {
+  ...DEMO_SCENARIO,
+  vehicles: DEMO_SCENARIO.vehicles.map((vehicle) =>
+    vehicle.id === "VAN-014" ? { ...vehicle, status: "BROKEN_DOWN" } : vehicle,
+  ),
+  shipments: DEMO_SCENARIO.shipments.map((shipment) =>
+    shipment.assignedVehicleId === "VAN-014" ? { ...shipment, status: "AT_RISK" } : shipment,
+  ),
+  incidents: [
+    {
+      id: "INC-1042",
+      type: "BREAKDOWN",
+      vehicleId: "VAN-014",
+      reporterId: "USR-DRIVER-014",
+      severity: "CRITICAL",
+      status: "OPEN",
+      summary: "Synthetic vehicle breakdown affecting six deliveries.",
+      version: 1,
+      createdAt: SEEDED_AT,
+      resolvedAt: null,
+      currentPlanId: null,
+    },
+  ],
+  incidentShipments: affectedShipments.map(({ id }) => ({
+    incidentId: "INC-1042",
+    shipmentId: id,
+    originalStatus: "IN_TRANSIT",
+  })),
+  assignments: DEMO_SCENARIO.assignments.map((assignment) =>
+    assignment.vehicleId === "VAN-014" ? { ...assignment, incidentId: "INC-1042" } : assignment,
+  ),
+};
 
 const recoveryInput = {
   incidentId: "INC-1042",
@@ -10,30 +46,32 @@ const recoveryInput = {
   targetVehicleId: "VAN-009",
 };
 
-test("fixture is a frozen, stable baseline with six linked shipments", () => {
+test("reset fixture is a frozen pre-incident baseline with six operational shipments", () => {
   assert.equal(DEMO_SCENARIO.seededAt, SEEDED_AT);
-  assert.equal(DEMO_SCENARIO.incidents[0].id, "INC-1042");
-  assert.equal(getAffectedShipments(DEMO_SCENARIO, "INC-1042").length, 6);
+  assert.deepEqual(DEMO_SCENARIO.incidents, []);
+  assert.equal(DEMO_SCENARIO.shipments.filter(({ assignedVehicleId }) => assignedVehicleId === "VAN-014").length, 6);
+  assert.ok(DEMO_SCENARIO.shipments.filter(({ assignedVehicleId }) => assignedVehicleId === "VAN-014").every(({ status }) => status === "IN_TRANSIT"));
   assert.equal(DEMO_SCENARIO.shipments.find(({ id }) => id === "MED-2048").trackingCode, "TRK-2048");
   assert.equal(DEMO_SCENARIO.shipments.find(({ id }) => id === "MED-2048").priority, "CRITICAL");
+  assert.equal(DEMO_SCENARIO.vehicles.find(({ id }) => id === "VAN-014").status, "AVAILABLE");
   assert.equal(DEMO_SCENARIO.vehicles.find(({ id }) => id === "VAN-009").status, "AVAILABLE");
   assert.ok(Object.isFrozen(DEMO_SCENARIO));
-  assert.ok(Object.isFrozen(DEMO_SCENARIO.incidents[0]));
+  assert.ok(Object.isFrozen(DEMO_SCENARIO.shipments[0]));
   assert.throws(() => {
-    DEMO_SCENARIO.incidents[0].status = "RESOLVED";
+    DEMO_SCENARIO.shipments[0].status = "DELIVERED";
   }, TypeError);
 });
 
-test("backup vehicle and driver pass the seeded recovery feasibility checks", () => {
-  const result = simulateReassignment(DEMO_SCENARIO, recoveryInput);
+test("backup vehicle and driver pass the post-report recovery feasibility checks", () => {
+  const result = simulateReassignment(recoveryScenario, recoveryInput);
 
   assert.deepEqual(result, { eligible: true, capacityOk: true, conflicts: [] });
 });
 
 test("broken vehicles are not eligible targets", () => {
   const fixture = {
-    ...DEMO_SCENARIO,
-    vehicles: DEMO_SCENARIO.vehicles.map((vehicle) =>
+    ...recoveryScenario,
+    vehicles: recoveryScenario.vehicles.map((vehicle) =>
       vehicle.id === "VAN-014" ? { ...vehicle, capacityUnits: 14 } : vehicle,
     ),
   };
@@ -50,7 +88,7 @@ test("broken vehicles are not eligible targets", () => {
 
 test("a shipment that exactly fills remaining capacity remains eligible", () => {
   const fixture = {
-    ...DEMO_SCENARIO,
+    ...recoveryScenario,
     vehicles: DEMO_SCENARIO.vehicles.map((vehicle) =>
       vehicle.id === "VAN-009" ? { ...vehicle, capacityUnits: 10, occupiedUnits: 8 } : vehicle,
     ),
@@ -62,8 +100,8 @@ test("a shipment that exactly fills remaining capacity remains eligible", () => 
 
 test("over-capacity assignments are rejected", () => {
   const fixture = {
-    ...DEMO_SCENARIO,
-    vehicles: DEMO_SCENARIO.vehicles.map((vehicle) =>
+    ...recoveryScenario,
+    vehicles: recoveryScenario.vehicles.map((vehicle) =>
       vehicle.id === "VAN-009" ? { ...vehicle, capacityUnits: 3, occupiedUnits: 2 } : vehicle,
     ),
   };
@@ -76,11 +114,11 @@ test("over-capacity assignments are rejected", () => {
 
 test("a second active critical shipment on the target vehicle is a conflict", () => {
   const fixture = {
-    ...DEMO_SCENARIO,
+    ...recoveryScenario,
     shipments: [
-      ...DEMO_SCENARIO.shipments,
+      ...recoveryScenario.shipments,
       {
-        ...DEMO_SCENARIO.shipments[0],
+        ...recoveryScenario.shipments[0],
         id: "MED-9999",
         trackingCode: "TRK-9999",
         assignedVehicleId: "VAN-009",
@@ -95,9 +133,9 @@ test("a second active critical shipment on the target vehicle is a conflict", ()
 });
 
 test("unknown, unrelated and mismatched inputs are rejected without writes", () => {
-  const originalEventCount = DEMO_SCENARIO.events.length;
-  const originalFixture = structuredClone(DEMO_SCENARIO);
-  const result = simulateReassignment(DEMO_SCENARIO, {
+  const originalEventCount = recoveryScenario.events.length;
+  const originalFixture = structuredClone(recoveryScenario);
+  const result = simulateReassignment(recoveryScenario, {
     incidentId: "INC-4040",
     shipmentId: "SHP-1010",
     targetDriverId: "DRV-014",
@@ -108,12 +146,12 @@ test("unknown, unrelated and mismatched inputs are rejected without writes", () 
   assert.ok(result.conflicts.includes("Incident INC-4040 was not found."));
   assert.ok(result.conflicts.includes("Shipment SHP-1010 is not affected by INC-4040."));
   assert.ok(result.conflicts.includes("Driver DRV-014 is not assigned to vehicle VAN-009."));
-  assert.equal(DEMO_SCENARIO.events.length, originalEventCount);
-  assert.deepEqual(DEMO_SCENARIO, originalFixture);
+  assert.equal(recoveryScenario.events.length, originalEventCount);
+  assert.deepEqual(recoveryScenario, originalFixture);
 });
 
 test("unknown driver and unknown vehicle are reported independently", () => {
-  const result = simulateReassignment(DEMO_SCENARIO, {
+  const result = simulateReassignment(recoveryScenario, {
     ...recoveryInput,
     targetDriverId: "DRV-404",
     targetVehicleId: "VAN-404",
@@ -127,8 +165,8 @@ test("unknown driver and unknown vehicle are reported independently", () => {
 
 test("off-duty drivers cannot receive a recovery assignment", () => {
   const fixture = {
-    ...DEMO_SCENARIO,
-    drivers: DEMO_SCENARIO.drivers.map((driver) =>
+    ...recoveryScenario,
+    drivers: recoveryScenario.drivers.map((driver) =>
       driver.id === "DRV-009" ? { ...driver, dutyStatus: "OFF_DUTY" } : driver,
     ),
   };
@@ -140,8 +178,8 @@ test("off-duty drivers cannot receive a recovery assignment", () => {
 
 test("delivered shipments cannot be reassigned", () => {
   const fixture = {
-    ...DEMO_SCENARIO,
-    shipments: DEMO_SCENARIO.shipments.map((shipment) =>
+    ...recoveryScenario,
+    shipments: recoveryScenario.shipments.map((shipment) =>
       shipment.id === "MED-2048" ? { ...shipment, status: "DELIVERED" } : shipment,
     ),
   };

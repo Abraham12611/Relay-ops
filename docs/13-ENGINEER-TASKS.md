@@ -44,7 +44,7 @@ At 5–8 implementation workstreams, assign E02, E03–E07, E08, E09–E12, E13�
 - [ ] Add meaningful unit/integration/e2e assertion.
 - [ ] Demonstrate exact output and expected user action.
 - [ ] Raise PR with dependencies and proof.
-- [ ] Mark Done only after integration on main.
+- [ ] Mark Done only after integration on develop.
 
 ## Parallel engineering anti-patterns
 Do not independently create data schemas, reinvent auth in each page, copy template code without license, simulate successful chat actions, reset live shared DB during other's test, claim delivery occurred without driver action, or change route names without contract update.
