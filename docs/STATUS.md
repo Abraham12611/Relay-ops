@@ -39,8 +39,8 @@
 | E14 | Not started | — | — | — |
 | E15 | Not started | — | — | — |
 | E16 | Not started | — | — | — |
-| E17 | In progress | Engineer 5 | Local fixture tests pass; live API contract suite added in `tests/api-contract.test.mjs` | Persistent API/auth routes and role credentials unavailable; live tests not run |
-| E18 | In progress | Engineer 5 | Reset/smoke scripts and two-run checklist added; branch PR pending | No runnable API; two uninterrupted runs and authentic Switch proof remain blocked |
+| E17 | In review | Engineer 5 | [PR #9](https://github.com/Abraham12611/Relay-ops/pull/9): local tests 10 passed; API contract suite added (3 skipped without service) | Persistent API/auth routes and role credentials unavailable; live tests not run |
+| E18 | In review | Engineer 5 | [PR #9](https://github.com/Abraham12611/Relay-ops/pull/9): reset/smoke scripts and two-run checklist | No runnable API; two uninterrupted runs and authentic Switch proof remain blocked |
 | E19 | Not started | — | — | — |
 | E20 | Not started | — | — | — |
 
