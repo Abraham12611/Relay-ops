@@ -15,15 +15,28 @@ The code and the live proof are separate milestones. The mocked tests verify ada
 
 The official Switch [onboarding guide](https://docs.switchagents.ai/switch-rooms/getting-started/onboard-your-agents) says the agent can use the provider's existing setup, including MCP servers. [Sessions and the runtime](https://docs.switchagents.ai/switch-rooms/internals/connectors-and-runtime) says Switch starts the selected provider and gives it Switch's own MCP tools; the provider's other MCP servers are not Switch operations. The [agent settings guide](https://docs.switchagents.ai/switch-rooms/getting-started/agent-settings) describes tool restrictions but does not document an API for adding custom Switch operations. Therefore RelayOps uses a provider-configured MCP server; this repository does not invent a Switch Gateway endpoint or use the agent-client registration API as a custom-tool API.
 
-Configure the server in the provider's documented MCP configuration with this launch command from the repository root:
+Configure the server in the provider's documented MCP settings. Switch's [onboarding guide](https://docs.switchagents.ai/switch-rooms/getting-started/onboard-your-agents) says provider setup carries over, including MCP servers, while its [troubleshooting guide](https://docs.switchagents.ai/switch-rooms/resources/troubleshooting#a-tool-that-works-in-your-terminal-fails-in-switch) warns that Switch passes only a fixed set of environment variables. Put required values in the MCP server's own environment block, in user-level configuration or a secret store—not a project file that might be committed, a room message, or agent instructions.
+
+For Codex, the current [Codex MCP guide](https://developers.openai.com/codex/extend/mcp) documents `~/.codex/config.toml`, a stdio `command`/`args` entry, `cwd`, and `env`. Replace the example paths, API origin, and key placeholder locally; never commit real credentials. This read-only setup needs only the read-scoped key. Add proposal or execution keys only after those backend routes are deployed and reviewed:
+
+```toml
+[mcp_servers.relayops]
+command = "/absolute/path/to/node"
+args = ["--experimental-strip-types", "--disable-warning=ExperimentalWarning", "switch/relayops-mcp.mjs"]
+cwd = "/absolute/path/to/Relay-ops"
+
+[mcp_servers.relayops.env]
+RELAYOPS_API_BASE_URL = "https://relayops.example.invalid"
+AGENT_READ_API_KEY = "replace-with-read-key"
+```
+
+Use Node.js 22.6 or newer on the provider's Run location. For other Switch-supported providers, follow that provider's current official MCP setup and keep credentials in its user-level configuration or secret store. The standalone launch command from the repository root is:
 
 ```text
 node --experimental-strip-types --disable-warning=ExperimentalWarning switch/relayops-mcp.mjs
 ```
 
-The provider launches it over stdio. Its MCP configuration must supply `RELAYOPS_API_BASE_URL` and the scoped RelayOps keys in the MCP server's own environment block. Switch passes only a fixed set of environment variables to the agent, so do not rely on arbitrary shell variables being inherited. Keep those values in the provider's user-level configuration or secret store, never in this repository, project-level MCP configuration, agent instructions, or room messages. If `RELAYOPS_REQUEST_ID_HEADER` is set, it must be `x-request-id`; the adapter defaults to `X-Request-ID` when it is absent or blank.
-
-Use an API origin reachable from the agent process. Plain HTTP is accepted only for loopback; use HTTPS for a remote host. In provider/agent tool restrictions, keep the RelayOps MCP tools available. Verify the provider reports signed in and the agent can call `getIncident` before claiming integration.
+The provider launches the server over stdio. Use an API origin reachable from the agent process. Plain HTTP is accepted only for loopback; use HTTPS for a remote host. `X-Request-ID` is sent on every request; if `RELAYOPS_REQUEST_ID_HEADER` is set, it must be `X-Request-ID` (header names are case-insensitive). Keep the RelayOps MCP tools enabled in provider/agent tool restrictions. Verify the provider reports signed in and the agent can call `getIncident` before claiming integration.
 
 ## RelayOps credentials and contracts
 
@@ -44,13 +57,15 @@ The execution service was not yet available in the checked-out `develop` branch,
 
 ## Reproduce a real Switch room
 
-Use the current official [Switch Console installation](https://docs.switchagents.ai/switch-rooms/getting-started/install-switch-console), [provider setup](https://docs.switchagents.ai/switch-rooms/getting-started/set-up-agent-providers), [room creation](https://docs.switchagents.ai/switch-rooms/getting-started/create-a-room), and [Mattermost connection](https://docs.switchagents.ai/switch-rooms/deploy/messaging-apps/mattermost) guides for the installed release. Linux x86_64 availability is release-dependent; follow the official host/platform requirements rather than assuming this cloud image supports the Console.
+Use the current official [Switch Console installation](https://docs.switchagents.ai/switch-rooms/getting-started/install-switch-console), [Add a server](https://docs.switchagents.ai/switch-rooms/getting-started/add-a-server), [provider setup](https://docs.switchagents.ai/switch-rooms/getting-started/set-up-agent-providers), [agent onboarding](https://docs.switchagents.ai/switch-rooms/getting-started/onboard-your-agents), [room creation](https://docs.switchagents.ai/switch-rooms/getting-started/create-a-room), and [Mattermost connection](https://docs.switchagents.ai/switch-rooms/deploy/messaging-apps/mattermost) guides for the installed release. Linux x86_64 availability is release-dependent; follow the official host/platform requirements rather than assuming this cloud image supports the Console.
 
-1. On a supported host with Docker installed, install and open Switch Console, then use its documented **Add a server** flow to start a Switch server and bundled Mattermost.
+1. On a supported host, install and open Switch Console. For a self-contained local Switch stack, use **Add a server → Run a server on this computer** with Docker running; Console provisions the Switch stack and bundled Mattermost. Alternatively, connect to a team server or an onboarded remote host. Switch troubleshooting documents that the bundled chat app is the Docker-dependent part; an existing/external messaging app is another option. For this task, follow the official [Mattermost connection guide](https://docs.switchagents.ai/switch-rooms/deploy/messaging-apps/mattermost): an external Mattermost must be reachable from the Switch server, have bot-account creation enabled, and provide an admin account plus the team's URL slug.
 2. Install one supported provider and sign it in. Add the RelayOps MCP stdio server to that provider's own MCP configuration, supplying the API origin and scoped keys through a user-level environment block.
 3. In Switch Console, onboard `relay-recovery` with this repository as its working directory and the instructions in [agent-system-instructions.md](agent-system-instructions.md). Verify the provider is signed in and retain access to the provider's MCP tools.
 4. Create `relayops-dispatch` through Switch's room UI with the agent and a real, linked human dispatcher.
 5. In Mattermost, send a human request such as `@relay-recovery investigate INC-1042 and report affected shipments; do not execute anything`. Capture the actual human message and agent reply, then verify a tool result against the API response and its request ID. Do not stage a mock chat or screenshot.
+
+Switch officially supports Claude Code, OpenCode, Codex, Cursor, and Antigravity; it starts the chosen provider on a machine you control. Set up and sign in to the provider on the same machine (or onboarded host) that Switch runs the agent on. Follow Switch's documented **Your Agents** onboarding flow to choose the provider, directory, name and settings, then invite that agent to a room. This is not an MCP registration endpoint: MCP is configured on the provider itself.
 
 Switch's standard agent registration, connection, and operations endpoints are for a client implementing the Switch agent protocol; this RelayOps MCP server is not such a client. Use the official protocol only if building a custom agent client becomes necessary.
 
