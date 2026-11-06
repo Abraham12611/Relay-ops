@@ -88,6 +88,46 @@ function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function redactSecrets(value, secrets) {
+  const redactText = (text) => secrets.reduce((safe, secret) => safe.split(secret).join("[redacted]"), text);
+  if (typeof value === "string") return redactText(value);
+  if (Array.isArray(value)) return value.map((entry) => redactSecrets(entry, secrets));
+  if (isRecord(value)) {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+      redactText(key),
+      redactSecrets(entry, secrets),
+    ]));
+  }
+  return value;
+}
+
+function validateToolArguments(definition, args) {
+  const schema = definition.inputSchema;
+  const properties = schema.properties;
+  for (const name of schema.required) {
+    if (!Object.hasOwn(args, name)) return `Missing required tool argument: ${name}.`;
+  }
+  for (const [name, value] of Object.entries(args)) {
+    const property = properties[name];
+    if (!property) {
+      if (schema.additionalProperties === false) return `Unexpected tool argument: ${name}.`;
+      continue;
+    }
+    if (property.type === "string") {
+      if (typeof value !== "string" || value.length < (property.minLength ?? 0)) {
+        return `Tool argument ${name} must be a string with at least ${property.minLength ?? 0} characters.`;
+      }
+    } else if (property.type === "integer") {
+      if (!Number.isSafeInteger(value) || (property.minimum !== undefined && value < property.minimum)) {
+        return `Tool argument ${name} must be an integer${property.minimum === undefined ? "" : ` of at least ${property.minimum}`}.`;
+      }
+    } else {
+      return `Tool argument ${name} uses an unsupported input schema type.`;
+    }
+  }
+  return null;
+}
+
 function safeToolError(error) {
   if (
     error instanceof RelayOpsApiError ||
@@ -115,12 +155,13 @@ function mcpToolError(id, message) {
 }
 
 /** Run a minimal MCP stdio server that adapts the fixed RelayOps tool gateway. */
-export function createRelayOpsMcpServer({ tools, input = process.stdin, output = process.stdout }) {
+export function createRelayOpsMcpServer({ tools, input = process.stdin, output = process.stdout, secrets = [] }) {
   const lines = createInterface({ input, crlfDelay: Infinity });
+  const safeSecrets = secrets.filter((secret) => typeof secret === "string" && secret.length > 0);
   let initialized = false;
   let work = Promise.resolve();
 
-  const send = (message) => output.write(`${JSON.stringify(message)}\n`);
+  const send = (message) => output.write(`${JSON.stringify(redactSecrets(message, safeSecrets))}\n`);
 
   async function handleLine(line) {
     let message;
@@ -177,17 +218,24 @@ export function createRelayOpsMcpServer({ tools, input = process.stdin, output =
         send(rpcError(id, -32602, "Invalid tool call parameters"));
         return;
       }
+      const definition = toolDefinitions.find((candidate) => candidate.name === params.name);
       const tool = tools[params.name];
-      if (typeof tool !== "function" || !toolDefinitions.some((definition) => definition.name === params.name)) {
+      if (typeof tool !== "function" || !definition) {
         send(mcpToolError(id, `Unknown RelayOps tool: ${params.name}`));
         return;
       }
+      const args = params.arguments ?? {};
+      const validationError = validateToolArguments(definition, args);
+      if (validationError) {
+        send(mcpToolError(id, validationError));
+        return;
+      }
       try {
-        const result = await tool(params.arguments ?? {});
+        const result = await tool(args);
         send({
           jsonrpc: "2.0",
           id,
-          result: { content: [{ type: "text", text: JSON.stringify(result) }] },
+          result: { content: [{ type: "text", text: JSON.stringify(redactSecrets(result, safeSecrets)) }] },
         });
       } catch (error) {
         send(mcpToolError(id, safeToolError(error)));
@@ -213,7 +261,12 @@ function isInvokedDirectly() {
 if (isInvokedDirectly()) {
   try {
     const api = new RelayOpsApi(relayOpsApiOptionsFromEnvironment(process.env));
-    createRelayOpsMcpServer({ tools: createRelayRecoveryTools(api) });
+    const secrets = [
+      process.env.AGENT_READ_API_KEY,
+      process.env.AGENT_PROPOSE_API_KEY,
+      process.env.AGENT_EXECUTE_API_KEY,
+    ];
+    createRelayOpsMcpServer({ tools: createRelayRecoveryTools(api), secrets });
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : "RelayOps MCP server could not start."}\n`);
     process.exitCode = 1;
