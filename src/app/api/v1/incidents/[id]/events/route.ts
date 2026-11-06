@@ -1,6 +1,6 @@
 import { authorize } from "../../../../../../lib/auth.ts";
 import { apiRoute } from "../../../../../../lib/http.ts";
-import { readIncidentEvents } from "../../../../../../services/driver-operations.ts";
+import { getIncidentEvents } from "../../../../../../services/incidents.ts";
 
 export const runtime = "nodejs";
 
@@ -11,6 +11,6 @@ export async function GET(
   return apiRoute(request, async () => {
     authorize(request, { roles: ["DISPATCHER"], scopes: ["incident:read"] });
     const { id } = await context.params;
-    return { data: await readIncidentEvents(id) };
+    return { data: await getIncidentEvents(id) };
   });
 }

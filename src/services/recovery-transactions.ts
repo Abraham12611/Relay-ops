@@ -143,15 +143,17 @@ function approvalProjection(
     incidentId: string;
     hash: string;
     version: number;
+    status: string;
     targetShipmentId: string;
     proposedVehicleId: string;
     proposedDriverId: string;
     newEtaAt: Date;
     rationale: string;
     feasibilitySnapshot: string;
-    incident: { currentPlanId: string | null; version: number };
+    incident: { currentPlanId: string | null; version: number; status: string };
   },
   eventId?: string,
+  now = new Date(),
 ): ApprovalProjection {
   const status = approval.status as ApprovalProjection["status"];
   return {
@@ -167,7 +169,11 @@ function approvalProjection(
     consumedAt: approval.consumedAt?.toISOString() ?? null,
     decisionReason: approval.decisionReason,
     ...(eventId === undefined ? {} : { eventId }),
-    isCurrent: status !== "EXPIRED" &&
+    isCurrent: status === "APPROVED" &&
+      approval.consumedAt === null &&
+      approval.expiresAt.getTime() > now.getTime() &&
+      plan.status === "APPROVED" &&
+      plan.incident.status === "APPROVED" &&
       approval.planId === plan.id &&
       approval.planHash === plan.hash &&
       plan.hash === canonicalPlanHash(plan) &&
@@ -217,7 +223,15 @@ export async function decideRecoveryPlan(
     if (prior) {
       const stored = parseStored<ApprovalProjection>(prior.result, "approval");
       matchIdempotentApproval(stored, input);
-      return { data: stored, replayed: true };
+      const currentPlan = await tx.recoveryPlan.findUnique({
+        where: { id: input.planId },
+        include: { incident: true, approval: true },
+      });
+      if (!currentPlan?.approval) {
+        throw new ApiFault(404, "APPROVAL_NOT_FOUND", `No decision has been recorded for plan ${input.planId}.`);
+      }
+      const current = approvalProjection(currentPlan.approval, currentPlan, stored.eventId, now);
+      return { data: current, replayed: true };
     }
 
     const plan = await tx.recoveryPlan.findUnique({
@@ -256,7 +270,7 @@ export async function decideRecoveryPlan(
     }
 
     if (plan.approval) {
-      const priorApproval = approvalProjection(plan.approval, plan);
+      const priorApproval = approvalProjection(plan.approval, plan, undefined, now);
       if (
         plan.approval.planHash === input.planHash &&
         priorApproval.planVersion === input.planVersion &&
@@ -324,7 +338,14 @@ export async function decideRecoveryPlan(
       correlationId,
       idempotencyKey: key,
     });
-    const result = approvalProjection(approval, plan, eventId);
+    const currentPlan = await tx.recoveryPlan.findUnique({
+      where: { id: plan.id },
+      include: { incident: true, approval: true },
+    });
+    if (!currentPlan?.approval) {
+      throw new ApiFault(500, "APPROVAL_WRITE_FAILED", "The approval decision was not persisted.");
+    }
+    const result = approvalProjection(currentPlan.approval, currentPlan, eventId, now);
     await tx.idempotencyRecord.create({
       data: { actor, action: "recovery.approve", key, result: JSON.stringify(result), createdAt: now },
     });
@@ -372,11 +393,11 @@ export async function readRecoveryApproval(
           correlationId,
         });
         approval = { ...approval, status: "EXPIRED" };
-        return approvalProjection(approval, plan, eventId);
+        return approvalProjection(approval, plan, eventId, now);
       }
       approval = (await tx.approval.findUnique({ where: { id: approval.id } })) ?? approval;
     }
-    return approvalProjection(approval, plan);
+    return approvalProjection(approval, plan, undefined, now);
   });
 }
 

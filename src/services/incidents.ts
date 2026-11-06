@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Incident } from "../types/contracts.ts";
+import { shipmentDto } from "../lib/api-dto.ts";
 import type { Principal as AuthPrincipal } from "../lib/auth.ts";
 import { prisma } from "../lib/db.ts";
 import { ApiFault } from "../lib/http.ts";
@@ -9,7 +10,8 @@ export interface BreakdownReportInput {
   summary: string;
 }
 
-export interface BreakdownReportResult {
+export interface BreakdownReportResult extends Incident {
+  /** Retained for the existing harness while the direct Incident fields serve the UI DTO. */
   incident: Incident;
   affectedShipmentIds: string[];
   duplicate: boolean;
@@ -56,6 +58,10 @@ function incidentDto(record: {
   };
 }
 
+function breakdownResult(incident: Incident, affectedShipmentIds: string[], duplicate: boolean): BreakdownReportResult {
+  return { ...incident, incident, affectedShipmentIds, duplicate };
+}
+
 export async function reportBreakdown(
   input: BreakdownReportInput,
   principal: AuthPrincipal,
@@ -86,11 +92,11 @@ export async function reportBreakdown(
     });
     if (existing) {
       const related = await tx.incidentShipment.findMany({ where: { incidentId: existing.id }, select: { shipmentId: true } });
-      const result: BreakdownReportResult = {
-        incident: incidentDto(existing),
-        affectedShipmentIds: related.map(({ shipmentId }) => shipmentId),
-        duplicate: true,
-      };
+      const result = breakdownResult(
+        incidentDto(existing),
+        related.map(({ shipmentId }) => shipmentId),
+        true,
+      );
       await tx.idempotencyRecord.create({
         data: { actor, action: "incident.breakdown", key, result: JSON.stringify(result), createdAt: new Date() },
       });
@@ -160,11 +166,7 @@ export async function reportBreakdown(
       },
     });
 
-    const result: BreakdownReportResult = {
-      incident: incidentDto(incidentRecord),
-      affectedShipmentIds: shipmentIds,
-      duplicate: false,
-    };
+    const result = breakdownResult(incidentDto(incidentRecord), shipmentIds, false);
     await tx.idempotencyRecord.create({
       data: { actor, action: "incident.breakdown", key, result: JSON.stringify(result), createdAt },
     });
@@ -185,8 +187,8 @@ export async function listIncidents() {
     },
   });
   return incidents.map(({ shipmentLinks, events, ...incident }) => ({
-    ...incident,
-    affectedShipments: shipmentLinks.map(({ shipment }) => shipment),
+    ...incidentDto(incident),
+    affectedShipments: shipmentLinks.map(({ shipment }) => shipmentDto(shipment)),
     events: events.map(eventDto),
   }));
 }
@@ -203,12 +205,41 @@ export async function getIncident(incidentId: string) {
     },
   });
   if (!incident) throw new ApiFault(404, "INCIDENT_NOT_FOUND", `Incident ${incidentId} was not found.`);
-  const { shipmentLinks, events, ...rest } = incident;
+  const { shipmentLinks, events, plans, ...rest } = incident;
+  const planDtos = plans.map((plan) => {
+    const feasibility = JSON.parse(plan.feasibilitySnapshot);
+    return {
+      ...plan,
+      newEtaAt: plan.newEtaAt.toISOString(),
+      feasibilitySnapshot: feasibility,
+      feasibility,
+      approval: plan.approval ? {
+        ...plan.approval,
+        approvedAt: plan.approval.approvedAt?.toISOString() ?? null,
+        expiresAt: plan.approval.expiresAt.toISOString(),
+        consumedAt: plan.approval.consumedAt?.toISOString() ?? null,
+      } : null,
+    };
+  });
+  const currentPlan = planDtos.find(({ id }) => id === incident.currentPlanId) ?? null;
   return {
     ...rest,
-    affectedShipments: shipmentLinks.map(({ shipment }) => shipment),
+    ...incidentDto(rest),
+    plans: planDtos,
+    currentPlan,
+    currentApproval: currentPlan?.approval ?? null,
+    affectedShipments: shipmentLinks.map(({ shipment }) => shipmentDto(shipment)),
     events: events.map(eventDto),
   };
+}
+
+export async function getIncidentEvents(incidentId: string) {
+  const incident = await prisma.incident.findUnique({
+    where: { id: incidentId },
+    select: { id: true, events: { orderBy: { createdAt: "asc" } } },
+  });
+  if (!incident) throw new ApiFault(404, "INCIDENT_NOT_FOUND", `Incident ${incidentId} was not found.`);
+  return { incidentId: incident.id, events: incident.events.map(eventDto) };
 }
 
 export async function getAffectedShipments(incidentId: string) {
@@ -217,5 +248,5 @@ export async function getAffectedShipments(incidentId: string) {
     select: { id: true, shipmentLinks: { include: { shipment: true } } },
   });
   if (!incident) throw new ApiFault(404, "INCIDENT_NOT_FOUND", `Incident ${incidentId} was not found.`);
-  return { incidentId: incident.id, shipments: incident.shipmentLinks.map(({ shipment }) => shipment) };
+  return { incidentId: incident.id, shipments: incident.shipmentLinks.map(({ shipment }) => shipmentDto(shipment)) };
 }

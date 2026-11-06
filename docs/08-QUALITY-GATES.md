@@ -55,7 +55,7 @@ The repository provides these checks (Node.js 22.6+):
 - `npm run test:integration` — exercise the optional live API contract suite; requires the service URL and role-scoped credentials.
 - `npm run smoke` — run the live golden path; requires the full role set and downstream workflow endpoints.
 
-The local checks cover the foundation APIs but do not validate the full approval/execution workflow, UI role flows, or Switch integration. Live integration tests are not verified until run against an isolated service with credentials. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for environment requirements and the two-run manual checklist.
+The local checks cover foundation APIs, allowlisted driver sessions/jobs, and persistence, but do not validate customer tracking, the full approval/execution workflow, UI role flows, or Switch integration. Live integration tests are not verified until run against an isolated service with credentials. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for environment requirements and the two-run manual checklist.
 
 `npm run dev` starts the Next.js app on port 3000 by default. `npm run lint` is not configured yet.
 

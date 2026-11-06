@@ -4,7 +4,7 @@
 
 RelayOps is a hackathon-focused operational workflow demonstrating how dispatchers, drivers, customers and AI agents collaboratively recover a time-critical shipment after a vehicle breakdown. **Switch is the required collaboration layer**, connecting a real AI agent to a real Mattermost team room. The business application maintains shipments, cases, approvals, and event history.
 
-> Status: **runnable application foundation**. The Next.js App Router, SQLite persistence, authenticated demo personas, scoped agent read/proposal APIs, deterministic pre-incident reset, and recovery feasibility endpoints are implemented. The full approval/execution workflow, role-specific product screens, and Switch connectivity remain separate work. Do not claim real Switch integration until tested.
+> Status: **runnable application with persisted recovery services**. The Next.js App Router, SQLite persistence, signed demo personas, scoped agent read/proposal/execution APIs, transactional dispatcher approvals and recovery execution, driver assignment lifecycle, customer-safe tracking/notifications, incident audit, and role-specific screens are implemented. A real Switch/Mattermost agent exchange still requires live verification; do not claim it until tested.
 
 ## Start here
 
@@ -51,7 +51,7 @@ npm run reset:demo
 npm run dev
 ```
 
-The SQLite URL in `.env` is relative to `prisma/schema.prisma`; `file:../relayops.db` stores the database at the repository root. `npm run reset:demo` is destructive and restores the deterministic **PRE-INCIDENT** state: `VAN-014` is operational, its six shipments are `IN_TRANSIT`, and `INC-1042` does not exist. A driver breakdown report creates `INC-1042`, marks the vehicle broken, and moves those shipments to `AT_RISK`.
+The SQLite URL in `.env` is relative to `prisma/schema.prisma`; `file:../relayops.db` stores the database at the repository root. `npm run reset:demo` is destructive and restores the deterministic **PRE-INCIDENT** state: `VAN-014` is operational, its six shipments are `IN_TRANSIT`, and `INC-1042` does not exist. Seven customer-visible shipment-registration events are seeded at the same fixed timestamp; they do not create an incident. A driver breakdown report creates `INC-1042`, marks the vehicle broken, and moves those shipments to `AT_RISK`.
 
 Useful checks and data commands:
 
@@ -64,12 +64,12 @@ npm run seed              # migrate and seed/reset the local demo baseline
 npm run reset:demo        # destructive local reset to PRE-INCIDENT
 npm run smoke:foundation # verify the local persisted baseline
 npm run test:integration # optional live API contract suite; requires service URL and role credentials
-npm run smoke            # full live golden path; requires all roles and later workflow endpoints
+npm run smoke            # live golden path; requires a configured service and all role credentials; does not prove Switch connectivity
 ```
 
-Demo sessions are issued by `POST /api/v1/demo/session` only with `x-demo-operator-key`; role identity is carried in a signed, HTTP-only cookie and validated server-side. Agent endpoints use `x-agent-api-key` with separate read, proposal, and execution keys. Never expose these keys to browser code. All responses use `{ data, correlationId }` or the shared `ApiErrorResponse` envelope.
+Demo sessions are issued by `POST /api/v1/demo/session` with `x-demo-operator-key`; the same-origin browser bridge at `POST /api/demo/session` keeps that key server-side. Driver sessions may select only `DRV-014` or `DRV-009`; the server signs the mapped user identity into an HTTP-only cookie. Agent endpoints use `x-agent-api-key` with separate read, proposal, and execution keys. Never expose these keys to browser code. All responses use `{ data, correlationId }` or the shared `ApiErrorResponse` envelope; valid `X-Request-ID` values are correlated on reads and writes.
 
-Implemented routes: `GET /api/v1/health`, demo session/state/reset, incident create/list/detail/affected shipments, shipment detail, available vehicles, recovery simulation, and version-checked recovery proposals. Approval lookup and recovery execution are not implemented by this foundation. API tests verify the driver report persists, duplicate requests dedupe, version conflicts are rejected, and state survives separate reads. The live golden-path tooling in `docs/DEMO-REHEARSAL.md` remains blocked on missing approval/execution and related downstream endpoints; neither local tests nor the API adapter proves a Switch/Mattermost connection.
+Implemented routes include demo session/state/reset, incident create/list/detail/affected shipments/events, shipment detail, available vehicles, recovery simulation/proposals, dispatcher approval decisions and reads, transactional recovery execution, driver jobs and assignment accept/pickup/deliver, and public customer tracking. Driver actions and recovery transitions persist customer-safe updates and auditable events; incidents close only when every linked shipment is terminal. `npm test` exercises these handlers against an isolated SQLite database; live API integration cases remain skipped without a configured service and credentials. The live golden-path tooling in `docs/DEMO-REHEARSAL.md` still requires a configured service and must not be taken as evidence of a real Switch/Mattermost connection.
 
 ## Progress
 

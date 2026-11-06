@@ -159,7 +159,7 @@ export interface Assignment {
 
 export interface Event {
   id: string;
-  caseId: string;
+  caseId: string | null;
   shipmentId: string | null;
   actorType: ActorType;
   actorId: string;
@@ -174,7 +174,7 @@ export interface Event {
 export interface CustomerNotification {
   id: string;
   shipmentId: string;
-  caseId: string;
+  caseId: string | null;
   channel: NotificationChannel;
   content: string;
   status: NotificationStatus;
@@ -208,9 +208,15 @@ export interface RecoveryProposal {
   feasibility: RecoveryFeasibility;
 }
 
+export interface DriverJob {
+  assignment: Assignment;
+  shipment: Shipment;
+}
+
 export interface ApprovalRequest {
   planId: string;
   planHash: string;
+  planVersion: number;
   decision: "APPROVE" | "REJECT";
   reason?: string;
 }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { after, before } from "node:test";
 import { POST as createDemoSession } from "../src/app/api/v1/demo/session/route.ts";
+import { POST as createBrowserDemoSession } from "../src/app/api/demo/session/route.ts";
 import { GET as demoState } from "../src/app/api/v1/demo/state/route.ts";
 import { GET as listIncidents, POST as reportIncident } from "../src/app/api/v1/incidents/route.ts";
 import { GET as getIncident } from "../src/app/api/v1/incidents/[id]/route.ts";
@@ -123,11 +124,21 @@ test("persisted driver breakdown, scoped APIs, and optimistic proposal versions"
   const baseline = (await bodyOf(baselineResponse)).data.scenario;
   assert.equal(baselineResponse.headers.get("cache-control"), "no-store");
   assert.deepEqual(baseline.incidents, []);
+  assert.equal(baseline.events.length, 7);
+  assert.ok(baseline.events.every(({ caseId, visibility }) => caseId === null && visibility === "CUSTOMER"));
   assert.equal(baseline.shipments.filter(({ assignedVehicleId }) => assignedVehicleId === "VAN-014").length, 6);
   assert.ok(baseline.shipments.filter(({ assignedVehicleId }) => assignedVehicleId === "VAN-014").every(({ status }) => status === "IN_TRANSIT"));
   assert.equal(baseline.vehicles.find(({ id }) => id === "VAN-014").status, "AVAILABLE");
 
+  const invalidDriverSession = await createDemoSession(jsonRequest("/api/v1/demo/session", {
+    method: "POST",
+    headers: { "x-demo-operator-key": operatorKey },
+    body: { role: "DRIVER", driverId: "DRV-404" },
+  }));
+  assert.equal(invalidDriverSession.status, 400);
+
   const driverCookie = await sessionCookie("DRIVER");
+  const backupDriverCookie = await sessionCookie("DRIVER", "DRV-009");
   const dispatcherCookie = await sessionCookie("DISPATCHER");
   const spoofedPersona = await reportIncident(jsonRequest("/api/v1/incidents", {
     method: "POST",
@@ -138,6 +149,12 @@ test("persisted driver breakdown, scoped APIs, and optimistic proposal versions"
 
   const driverCannotList = await listIncidents(jsonRequest("/api/v1/incidents", { headers: { cookie: driverCookie } }));
   assert.equal(driverCannotList.status, 403);
+  const backupCannotClaimPrimaryVehicle = await reportIncident(jsonRequest("/api/v1/incidents", {
+    method: "POST",
+    headers: { cookie: backupDriverCookie, "idempotency-key": "backup-wrong-vehicle" },
+    body: { vehicleId: "VAN-014", summary: "Backup cannot impersonate the primary driver." },
+  }));
+  assert.equal(backupCannotClaimPrimaryVehicle.status, 403);
 
   const createdResponse = await reportIncident(jsonRequest("/api/v1/incidents", {
     method: "POST",
@@ -147,6 +164,7 @@ test("persisted driver breakdown, scoped APIs, and optimistic proposal versions"
   assert.equal(createdResponse.status, 201);
   const createdEnvelope = await bodyOf(createdResponse);
   assert.equal(createdEnvelope.correlationId, "incident-report-test");
+  assert.equal(createdEnvelope.data.id, "INC-1042");
   assert.equal(createdEnvelope.data.incident.id, "INC-1042");
   assert.equal(createdEnvelope.data.incident.version, 1);
   assert.equal(createdEnvelope.data.affectedShipmentIds.length, 6);
@@ -158,7 +176,7 @@ test("persisted driver breakdown, scoped APIs, and optimistic proposal versions"
     body: { vehicleId: "VAN-014", summary: "Actual demo-driver breakdown report." },
   }));
   assert.equal(replayResponse.status, 201);
-  assert.equal((await bodyOf(replayResponse)).data.incident.id, "INC-1042");
+  assert.equal((await bodyOf(replayResponse)).data.id, "INC-1042");
 
   const afterReportState = (await bodyOf(await demoState(jsonRequest("/api/v1/demo/state", {
     headers: { "x-demo-operator-key": operatorKey },
@@ -173,14 +191,34 @@ test("persisted driver breakdown, scoped APIs, and optimistic proposal versions"
   assert.equal(listResponse.status, 200);
   assert.equal((await bodyOf(listResponse)).data.length, 1);
 
-  const detailResponse = await getIncident(jsonRequest("/api/v1/incidents/INC-1042", { headers: { cookie: dispatcherCookie } }), {
+  const detailResponse = await getIncident(jsonRequest("/api/v1/incidents/INC-1042", {
+    headers: { cookie: dispatcherCookie, "x-request-id": "incident-read-test" },
+  }), {
     params: Promise.resolve({ id: "INC-1042" }),
   });
   assert.equal(detailResponse.status, 200);
-  const detail = (await bodyOf(detailResponse)).data;
+  const detailEnvelope = await bodyOf(detailResponse);
+  assert.equal(detailEnvelope.correlationId, "incident-read-test");
+  const detail = detailEnvelope.data;
   assert.equal(detail.version, 1);
   assert.equal(detail.affectedShipments.length, 6);
   assert.equal(detail.events.length, 1);
+  assert.equal(detail.currentPlan, null);
+
+  const eventsResponse = await incidentEvents(jsonRequest("/api/v1/incidents/INC-1042/events", {
+    headers: { "x-agent-api-key": readKey, "x-request-id": "agent-read-events-test" },
+  }), { params: Promise.resolve({ id: "INC-1042" }) });
+  const eventEnvelope = await bodyOf(eventsResponse);
+  assert.equal(eventsResponse.status, 200);
+  assert.equal(eventEnvelope.correlationId, "agent-read-events-test");
+  assert.equal(eventEnvelope.data.events.length, 1);
+
+  const backupJobsResponse = await driverJobs(jsonRequest("/api/v1/driver/jobs", { headers: { cookie: backupDriverCookie } }));
+  assert.equal(backupJobsResponse.status, 200);
+  const backupJobs = (await bodyOf(backupJobsResponse)).data;
+  assert.equal(backupJobs.length, 1);
+  assert.equal(backupJobs[0].assignment.driverId, "DRV-009");
+  assert.equal(backupJobs[0].shipment.id, "SHP-1010");
 
   const affectedResponse = await getAffectedShipments(jsonRequest("/api/v1/incidents/INC-1042/shipments", {
     headers: { cookie: dispatcherCookie },
@@ -191,7 +229,36 @@ test("persisted driver breakdown, scoped APIs, and optimistic proposal versions"
     headers: { cookie: driverCookie },
   }), { params: Promise.resolve({ id: "MED-2048" }) });
   assert.equal(shipmentResponse.status, 200);
-  assert.equal((await bodyOf(shipmentResponse)).data.status, "AT_RISK");
+  const shipmentDto = (await bodyOf(shipmentResponse)).data;
+  assert.equal(shipmentDto.status, "AT_RISK");
+  assert.equal(shipmentDto.id, "MED-2048");
+  assert.equal("assignedDriver" in shipmentDto, false);
+
+  const backupShipmentResponse = await getShipment(jsonRequest("/api/v1/shipments/SHP-1010", {
+    headers: { cookie: backupDriverCookie },
+  }), { params: Promise.resolve({ id: "SHP-1010" }) });
+  assert.equal(backupShipmentResponse.status, 200);
+  const backupCannotReadPrimaryShipment = await getShipment(jsonRequest("/api/v1/shipments/MED-2048", {
+    headers: { cookie: backupDriverCookie },
+  }), { params: Promise.resolve({ id: "MED-2048" }) });
+  assert.equal(backupCannotReadPrimaryShipment.status, 403);
+
+  const browserSessionResponse = await createBrowserDemoSession(jsonRequest("/api/demo/session", {
+    method: "POST",
+    headers: { "sec-fetch-site": "same-origin" },
+    body: { role: "DRIVER", driverId: "DRV-009" },
+  }));
+  assert.equal(browserSessionResponse.status, 201);
+  const browserSessionData = (await bodyOf(browserSessionResponse)).data;
+  assert.equal(browserSessionData.userId, "USR-DRIVER-009");
+  assert.equal(browserSessionData.driverId, "DRV-009");
+  assert.match(browserSessionResponse.headers.get("set-cookie"), /HttpOnly/);
+  const crossOriginSessionResponse = await createBrowserDemoSession(jsonRequest("/api/demo/session", {
+    method: "POST",
+    headers: { origin: "https://attacker.example" },
+    body: { role: "DISPATCHER" },
+  }));
+  assert.equal(crossOriginSessionResponse.status, 403);
 
   const availableResponse = await getAvailableVehicles(jsonRequest("/api/v1/vehicles/available", {
     headers: { "x-agent-api-key": readKey },
@@ -250,6 +317,24 @@ test("persisted driver breakdown, scoped APIs, and optimistic proposal versions"
   assert.equal(refreshed.affectedShipments.length, 6);
   assert.equal(refreshed.events.length, 2);
   assert.equal(refreshed.plans.length, 1);
+  assert.equal(refreshed.currentPlan.version, 2);
+  assert.equal(refreshed.currentPlan.id, proposal.id);
+  assert.equal(refreshed.currentPlan.hash, proposal.hash);
+  assert.equal(refreshed.currentPlan.feasibilitySnapshot.eligible, true);
+  assert.equal(refreshed.currentApproval, null);
+
+  const shipmentOnlyNotice = await prisma.customerNotification.create({
+    data: {
+      id: "NTF-SHIPMENT-ONLY-1010",
+      shipmentId: "SHP-1010",
+      caseId: null,
+      channel: "IN_APP",
+      content: "Your delivery is progressing.",
+      status: "VISIBLE",
+      createdAt: new Date("2026-11-06T17:09:00.000Z"),
+    },
+  });
+  assert.equal(shipmentOnlyNotice.caseId, null);
 });
 
 test("dispatcher approval, atomic execution, driver completion, and customer projection use persisted state", async () => {
@@ -328,6 +413,10 @@ test("dispatcher approval, atomic execution, driver completion, and customer pro
     executeRecovery(mutationRequest(executePath, key, { approvalId, planId, idempotencyKey: key }, headers));
   const dispatcherCannotExecute = await execute("dispatcher-execution-denied", approval.id, proposal.id, { cookie: dispatcherCookie });
   assert.equal(dispatcherCannotExecute.status, 403);
+  const readAgentCannotExecute = await execute("read-agent-execution-denied", approval.id, proposal.id, {
+    "x-agent-api-key": readKey,
+  });
+  assert.equal(readAgentCannotExecute.status, 403);
 
   const wrongApproval = await execute("wrong-approval", "APR-NOT-FOR-THIS-PLAN");
   assert.equal(wrongApproval.status, 403);
@@ -401,6 +490,17 @@ test("dispatcher approval, atomic execution, driver completion, and customer pro
   const secondExecutionKey = await execute("second-execution-key");
   assert.equal(secondExecutionKey.status, 409);
   assert.equal((await bodyOf(secondExecutionKey)).error.code, "APPROVAL_CONSUMED");
+  const consumedApprovalRead = await readRecoveryApproval(jsonRequest(approvalPath, {
+    headers: { cookie: dispatcherCookie },
+  }), { params: Promise.resolve({ planId: proposal.id }) });
+  assert.equal((await bodyOf(consumedApprovalRead)).data.isCurrent, false);
+  const replayedDecision = await approveRecovery(mutationRequest("/api/v1/recovery/approvals", "dispatcher-approve-v2", approvalBody, {
+    cookie: dispatcherCookie,
+  }));
+  assert.equal(replayedDecision.status, 200);
+  const replayedDecisionData = (await bodyOf(replayedDecision)).data;
+  assert.equal(replayedDecisionData.status, "CONSUMED");
+  assert.equal(replayedDecisionData.isCurrent, false);
 
   const jobsResponse = await driverJobs(jsonRequest("/api/v1/driver/jobs", { headers: { cookie: backupCookie } }));
   assert.equal(jobsResponse.status, 200);
@@ -571,7 +671,16 @@ test("dispatcher approval, atomic execution, driver completion, and customer pro
   }, { cookie: backupCookie }), { params: Promise.resolve({ id: "ASG-1010" }) });
   assert.equal(regularDelivery.status, 200);
   assert.equal((await bodyOf(regularDelivery)).data.status, "COMPLETED");
-  assert.equal((await prisma.businessEvent.count({ where: { shipmentId: "SHP-1010", caseId: null } })), 2);
+  assert.equal((await prisma.businessEvent.count({
+    where: {
+      shipmentId: "SHP-1010",
+      caseId: null,
+      type: { in: ["DRIVER_PICKUP_CONFIRMED", "DRIVER_DELIVERY_CONFIRMED"] },
+    },
+  })), 2);
+  assert.equal((await prisma.businessEvent.count({
+    where: { shipmentId: "SHP-1010", caseId: null, type: "CUSTOMER_STATUS_UPDATED", visibility: "CUSTOMER" },
+  })), 2);
   assert.equal((await prisma.customerNotification.count({ where: { shipmentId: "SHP-1010", caseId: null } })), 2);
   const regularTracking = await trackShipment(jsonRequest("/api/v1/track/TRK-1010"), {
     params: Promise.resolve({ code: "TRK-1010" }),
@@ -592,6 +701,7 @@ test("rejected and expired dispatcher decisions cannot execute", async () => {
   const rejectedApproval = (await bodyOf(rejectResponse)).data;
   assert.equal(rejectedApproval.status, "REJECTED");
   assert.equal(rejectedApproval.decision, "REJECT");
+  assert.equal(rejectedApproval.isCurrent, false);
   const rejectedExecute = await executeRecovery(mutationRequest("/api/v1/recovery/execute", "execute-rejected-plan", {
     approvalId: rejectedApproval.id,
     planId: rejectedFixture.proposal.id,
@@ -615,7 +725,9 @@ test("rejected and expired dispatcher decisions cannot execute", async () => {
     headers: { cookie: expiredFixture.dispatcherCookie },
   }), { params: Promise.resolve({ planId: expiredFixture.proposal.id }) });
   assert.equal(expiredRead.status, 200);
-  assert.equal((await bodyOf(expiredRead)).data.status, "EXPIRED");
+  const expiredProjection = (await bodyOf(expiredRead)).data;
+  assert.equal(expiredProjection.status, "EXPIRED");
+  assert.equal(expiredProjection.isCurrent, false);
   assert.equal((await prisma.approval.findUnique({ where: { id: approved.id } })).status, "EXPIRED");
   assert.equal((await prisma.recoveryPlan.findUnique({ where: { id: expiredFixture.proposal.id } })).status, "EXPIRED");
   assert.equal((await prisma.incident.findUnique({ where: { id: "INC-1042" } })).status, "INVESTIGATING");

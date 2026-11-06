@@ -1,6 +1,7 @@
 import { authorize } from "../../../../../lib/auth.ts";
 import { apiRoute, ApiFault } from "../../../../../lib/http.ts";
-import { readDriver, readShipmentDto } from "../../../../../services/driver-operations.ts";
+import { shipmentDto } from "../../../../../lib/api-dto.ts";
+import { readShipment } from "../../../../../services/recovery.ts";
 
 export const runtime = "nodejs";
 
@@ -11,13 +12,12 @@ export async function GET(
   return apiRoute(request, async () => {
     const principal = authorize(request, { roles: ["DISPATCHER", "DRIVER"], scopes: ["shipment:read"] });
     const { id } = await context.params;
-    const shipment = await readShipmentDto(id);
+    const shipment = await readShipment(id);
     if (principal.kind === "persona" && principal.role === "DRIVER") {
-      const driver = await readDriver(principal);
-      if (shipment.assignedDriverId !== driver.id) {
-        throw new ApiFault(403, "FORBIDDEN", "Drivers may only read shipments currently assigned to them.");
+      if (shipment.assignedDriver.userId !== principal.userId) {
+        throw new ApiFault(403, "FORBIDDEN", "Drivers may only read shipments assigned to them.");
       }
     }
-    return { data: shipment };
+    return { data: shipmentDto(shipment) };
   });
 }

@@ -54,7 +54,7 @@ docs/
 - JSON REST + `GET /api/v1/cases/:id`, etc. Typed DTOs in one file. No direct database access from UI components.
 - Business service owns state machines. Agent tools call **same service layer** as operator UI, never write raw DB directly.
 - Persist an `Event` for each material decision and state transition; keep separate `CustomerNotification` projection.
-- Demo auth: `POST /api/v1/demo/session` requires the server-only `x-demo-operator-key`; it issues an HTTP-only signed persona cookie. Every protected handler validates signature, expiry, and server-side role. `DEMO_MODE=true` is required; arbitrary client role headers are ignored.
+- Demo auth: `POST /api/v1/demo/session` requires the server-only `x-demo-operator-key`; the same-origin `POST /api/demo/session` bridge can issue browser demo sessions without exposing that key. Driver selection is limited to seeded `DRV-014`/`DRV-009` identities. The signed HTTP-only persona cookie is validated on every protected handler; `DEMO_MODE=true` is required and arbitrary client role headers/user IDs are ignored.
 - Agent auth: server validates a signed demo persona cookie issued only by the operator-authenticated session route. Agent read, proposal and execution scopes use distinct server-only secrets in request headers; never put these keys in browser bundles. A client-supplied role header is not an identity.
 - Data seeded with stable identifiers and resettable using admin-only local command.
 - Poll case state at 2–5 seconds for demo, or SSE if already available; never claim realtime GPS.
