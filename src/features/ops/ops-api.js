@@ -75,8 +75,12 @@ export function createOpsApi({ fetchImpl = globalThis.fetch, basePath = "/api/v1
     getIncident: (incidentId) => request(`/incidents/${encodeURIComponent(incidentId)}`),
     getEvents: (incidentId) =>
       request(`/incidents/${encodeURIComponent(incidentId)}/events`),
+    getIncidentShipments: (incidentId) =>
+      request(`/incidents/${encodeURIComponent(incidentId)}/shipments`),
     getShipment: (shipmentId) =>
       request(`/shipments/${encodeURIComponent(shipmentId)}`),
+    getApproval: (planId) =>
+      request(`/recovery/approvals/${encodeURIComponent(planId)}`),
     getAvailableVehicles: () => request("/vehicles/available"),
     simulateRecovery: (input) =>
       request("/recovery/simulate", { method: "POST", body: input }),

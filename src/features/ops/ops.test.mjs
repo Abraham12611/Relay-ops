@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createOpsApi, OpsApiError } from "./ops-api.js";
-import { canDecideRecoveryPlan, escapeHtml, filterIncidents, formatDate, getCollection, getRoute, unwrapData } from "./ops.js";
+import { canDecideRecoveryPlan, escapeHtml, fetchIncidentEvents, filterIncidents, formatDate, getCollection, getExecutionReceipt, getRoute, normalizeCaseResponse, unwrapData } from "./ops.js";
 
 const incidents = [
   { id: "INC-1042", summary: "Critical van breakdown", severity: "CRITICAL", status: "AWAITING_APPROVAL" },
@@ -42,6 +42,92 @@ test("dynamic strings are HTML escaped and dates are explicit UTC", () => {
   assert.equal(escapeHtml(`<script title='x'>&`), "&lt;script title=&#39;x&#39;&gt;&amp;");
   assert.match(formatDate("2026-11-06T17:09:00.000Z"), /UTC$/);
   assert.equal(formatDate("not-a-date"), "Not recorded");
+});
+
+test("case detail resolves the current plan from persisted incident records and parses its feasibility snapshot", () => {
+  const detail = normalizeCaseResponse({
+    data: {
+      id: "INC-1042",
+      status: "AWAITING_APPROVAL",
+      currentPlanId: "PLAN-1042-2",
+      plans: [{
+        id: "PLAN-1042-2",
+        version: 2,
+        hash: "sha256:abc123",
+        status: "PROPOSED",
+        feasibilitySnapshot: JSON.stringify({ eligible: true, capacityOk: true, conflicts: [] }),
+        approval: { id: "APR-44", status: "APPROVED", planVersion: 2 },
+      }],
+    },
+  });
+  assert.equal(detail.plan.id, "PLAN-1042-2");
+  assert.deepEqual(detail.plan.feasibilitySnapshot, { eligible: true, capacityOk: true, conflicts: [] });
+  assert.equal(detail.approval.id, "APR-44");
+  assert.equal(canDecideRecoveryPlan(detail.incident, detail.plan), true);
+});
+
+test("case and activity timelines fall back to events embedded in persisted incident records", async () => {
+  const embedded = { id: "EVT-EMBEDDED", type: "INCIDENT_REPORTED", createdAt: "2026-11-06T17:00:00.000Z" };
+  const detail = normalizeCaseResponse({ data: { id: "INC-1042", events: [embedded] } });
+  assert.deepEqual(detail.events, [embedded]);
+
+  const unavailable = await fetchIncidentEvents({ getEvents: async () => { throw new Error("route not found"); } }, "INC-1042", detail.events);
+  assert.deepEqual(unavailable.events, [embedded]);
+  assert.equal(unavailable.error.message, "route not found");
+
+  const persisted = { id: "EVT-DEDICATED", type: "RECOVERY_PLAN_PROPOSED" };
+  const available = await fetchIncidentEvents({ getEvents: async () => ({ data: { events: [persisted] } }) }, "INC-1042", detail.events);
+  assert.deepEqual(available.events, [persisted]);
+  assert.equal(available.error, null);
+});
+
+test("execution receipts come only from the persisted reassignment audit event", () => {
+  const receipt = getExecutionReceipt([
+    { id: "EVT-OLD", type: "RECOVERY_PLAN_PROPOSED", payload: { assignmentId: "not-an-execution" } },
+    {
+      id: "EVT-EXECUTED-1",
+      type: "REASSIGNMENT_EXECUTED",
+      caseId: "INC-1042",
+      shipmentId: "MED-2048",
+      createdAt: "2026-11-06T18:00:00.000Z",
+      payload: JSON.stringify({
+        eventId: "EVT-EXECUTED-1",
+        planId: "PLAN-1042-2",
+        planVersion: 2,
+        approvalId: "APR-44",
+        assignmentId: "ASN-22",
+        shipmentId: "MED-2048",
+        resultingStatus: "REASSIGNED",
+        newEtaAt: "2026-11-06T20:00:00.000Z",
+      }),
+    },
+  ]);
+  assert.equal(receipt.assignmentId, "ASN-22");
+  assert.equal(receipt.shipmentId, "MED-2048");
+  assert.equal(receipt.eventId, "EVT-EXECUTED-1");
+  assert.equal(receipt.status, "REASSIGNED");
+  assert.equal(getExecutionReceipt([{ id: "EVT-1", type: "RECOVERY_PLAN_PROPOSED" }]), null);
+});
+
+test("affected shipment and persisted approval reads use the business API routes", async () => {
+  const calls = [];
+  const api = createOpsApi({
+    basePath: "/api/v1",
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return new Response(JSON.stringify({ data: { id: "APR-44", status: "APPROVED" } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+  });
+  await api.getIncidentShipments("INC/1042");
+  await api.getApproval("PLAN/1042-2");
+  assert.deepEqual(calls.map(({ url }) => url), [
+    "/api/v1/incidents/INC%2F1042/shipments",
+    "/api/v1/recovery/approvals/PLAN%2F1042-2",
+  ]);
+  assert.ok(calls.every(({ options }) => options.credentials === "same-origin"));
 });
 
 test("dispatcher decision posts the exact plan ID, hash and version with request/idempotency headers", async () => {
