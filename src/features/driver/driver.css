@@ -465,3 +465,116 @@
     align-self: end;
   }
 }
+
+.driver-session-switcher {
+  width: min(calc(100% - 2rem), 46rem);
+  margin: 1.25rem auto 0;
+  padding: 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.9rem;
+  color: #142033;
+  background: #ffffff;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.driver-session-switcher__eyebrow {
+  margin: 0;
+  color: #42536a;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.driver-session-switcher__copy h1 {
+  margin: 0.2rem 0 0.35rem;
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+
+.driver-session-switcher__copy > p:last-child {
+  margin: 0;
+  color: #42536a;
+  font-size: 0.9rem;
+}
+
+.driver-session-switcher__form {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.driver-session-switcher__form label {
+  font-weight: 700;
+}
+
+.driver-session-switcher__form select {
+  min-height: 2.8rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #7d8da1;
+  border-radius: 0.55rem;
+  color: #142033;
+  background: #ffffff;
+  font: inherit;
+}
+
+.driver-session-switcher__form button {
+  min-height: 2.8rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #0757b8;
+  border-radius: 0.6rem;
+  color: #ffffff;
+  background: #0757b8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.driver-session-switcher__form button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.driver-session-switcher__form button:focus-visible,
+.driver-session-switcher__form select:focus-visible {
+  outline: 3px solid #ad5c00;
+  outline-offset: 3px;
+}
+
+.driver-session-switcher__message {
+  margin: 0.65rem 0 0;
+  font-size: 0.9rem;
+}
+
+.driver-session-switcher__message.is-error {
+  color: #992b2b;
+}
+
+.driver-session-switcher__message.is-success {
+  color: #17643b;
+}
+
+@media (min-width: 40rem) {
+  .driver-session-switcher {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.5rem 1.25rem;
+    padding: 1.1rem 1.25rem;
+  }
+
+  .driver-session-switcher__form {
+    grid-template-columns: auto auto;
+    align-items: end;
+    margin-top: 0;
+  }
+
+  .driver-session-switcher__form label {
+    grid-column: 1 / -1;
+  }
+
+  .driver-session-switcher__message {
+    grid-column: 1 / -1;
+  }
+}

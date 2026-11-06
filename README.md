@@ -4,7 +4,7 @@
 
 RelayOps is a hackathon-focused operational workflow demonstrating how dispatchers, drivers, customers and AI agents collaboratively recover a time-critical shipment after a vehicle breakdown. **Switch is the required collaboration layer**, connecting a real AI agent to a real Mattermost team room. The business application maintains shipments, cases, approvals, and event history.
 
-> Status: **foundation implementation started; this is not yet a runnable product**. Shared domain/API types, an immutable synthetic scenario, and read-only recovery feasibility checks are implemented. Persistence, HTTP routes, UI, and Switch connectivity remain unimplemented. Do not claim real Switch integration until tested.
+> Status: **runnable application foundation**. The Next.js App Router, SQLite persistence, authenticated demo personas, scoped agent read/proposal APIs, deterministic pre-incident reset, and recovery feasibility endpoints are implemented. The full approval/execution workflow, role-specific product screens, and Switch connectivity remain separate work. Do not claim real Switch integration until tested.
 
 ## Start here
 
@@ -42,12 +42,35 @@ A genuine Switch-mediated agent exchange, verified business API/tool calls, pers
 Requires Node.js 22.6 or newer. From the repository root:
 
 ```bash
+cp .env.example .env
+# Replace the demo and agent secret placeholders in .env with distinct random secrets.
 npm install
-npm test
-npm run typecheck
+npm run db:generate
+npm run db:migrate
+npm run reset:demo
+npm run dev
 ```
 
-`npm test` exercises deterministic local checks; live API contract tests are skipped unless explicitly run through `npm run test:integration`. `npm run reset:demo` restores a PRE-INCIDENT baseline with no `INC-1042`; the smoke flow reports the driver breakdown to create it. These commands require a running API and demo credentials, do not start a web server, and do not prove a Switch/Mattermost connection. See [the demo rehearsal gate](docs/DEMO-REHEARSAL.md) for exact setup, commands, cases, and evidence requirements. API routes, database migrations/seeding, UI, and `dev`, `lint`, and `seed` commands remain unimplemented.
+The SQLite URL in `.env` is relative to `prisma/schema.prisma`; `file:../relayops.db` stores the database at the repository root. `npm run reset:demo` is the local Prisma CLI reset and restores the deterministic **PRE-INCIDENT** state: `VAN-014` is operational, its six shipments are `IN_TRANSIT`, and `INC-1042` does not exist. Seven customer-visible shipment-registration events are seeded at the same fixed timestamp; they do not create an incident. A driver breakdown report creates `INC-1042`, marks the vehicle broken, and moves those shipments to `AT_RISK`.
+
+Useful checks and data commands:
+
+```bash
+npm ci
+npm test                 # isolated SQLite DB plus domain/API and smoke-helper checks; live contracts skip unless opted in
+npm run typecheck
+npm run build
+npm run seed              # migrate and seed/reset the local demo baseline
+npm run reset:demo        # destructive local Prisma reset to PRE-INCIDENT
+npm run reset:service     # protected HTTP reset for an isolated running demo service
+npm run smoke:foundation # verify the local persisted baseline
+npm run test:integration # optional live API contract suite; requires service URL and role credentials
+npm run smoke            # full live golden path; requires the downstream workflow endpoints
+```
+
+The live reset/smoke helpers use the protected `POST /api/v1/demo/reset` endpoint and verify the service state; they do not change the local Prisma CLI reset semantics. Demo sessions are issued by `POST /api/v1/demo/session` with `x-demo-operator-key`; the same-origin browser bridge at `POST /api/demo/session` keeps that key server-side. Driver sessions may select only `DRV-014` or `DRV-009`; the server signs the mapped user identity into an HTTP-only cookie. Agent endpoints use `x-agent-api-key` with separate read, proposal, and execution keys. Never expose these keys to browser code. All responses use `{ data, correlationId }` or the shared `ApiErrorResponse` envelope; valid `X-Request-ID` values are correlated on reads and writes.
+
+The foundation provides the health, demo, incident, driver, shipment, vehicle, feasibility, and recovery-proposal routes. Approval decisions/reads, recovery execution, assignment lifecycle, and customer tracking are supplied by downstream work and are not yet integrated into `develop`. See [the demo rehearsal gate](docs/DEMO-REHEARSAL.md) for the focused API smoke and live-demo checklist. Local tests and API adapter checks do not prove a Switch/Mattermost connection.
 
 ## Progress
 

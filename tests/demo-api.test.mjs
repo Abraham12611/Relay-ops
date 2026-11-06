@@ -7,6 +7,7 @@ import {
   assertSeededBaseline,
   assertStatus,
   responseData,
+  resetDemo,
 } from "../scripts/lib/demo-api.mjs";
 
 function preIncidentState() {
@@ -68,7 +69,7 @@ test("API failures must use the correlated error contract", () => {
     status: 409,
     payload: { error: { code: "STALE_PLAN", message: "Conflict", correlationId: "req-2" } },
   }, 409, "stale plan"));
-  assert.throws(() => assertStatus({ status: 403, payload: {} }, 403, "forbidden action"), /error response envelope/);
+  assert.throws(() => assertStatus({ status: 403, payload: {} }, 403, "forbidden action"), /documented \{error\} response envelope/);
 });
 
 test("request builder uses backend headers and distinct selected driver sessions", async () => {
@@ -96,12 +97,28 @@ test("request builder uses backend headers and distinct selected driver sessions
     requests.push(request);
     if (url.endsWith("/api/v1/demo/session")) {
       const persona = request.body.driverId ?? (request.body.role === "DRIVER" ? "DRV-014" : request.body.role);
-      return new Response(JSON.stringify({ data: { role: request.body.role }, correlationId: "session-correlation" }), {
+      const sessionData = {
+        role: request.body.role,
+        ...(request.body.role === "DRIVER" ? { driverId: request.body.driverId ?? "DRV-014" } : {}),
+      };
+      return new Response(JSON.stringify({ data: sessionData, correlationId: "session-correlation" }), {
         status: 201,
         headers: {
           "content-type": "application/json",
           "set-cookie": `relayops_demo_session=${persona}; Path=/; HttpOnly; SameSite=Lax`,
         },
+      });
+    }
+    if (url.endsWith("/api/v1/demo/reset")) {
+      return new Response(JSON.stringify({ data: { state: "PRE-INCIDENT" }, correlationId: "reset-correlation" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.endsWith("/api/v1/demo/state")) {
+      return new Response(JSON.stringify({ data: preIncidentState(), correlationId: "state-correlation" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
       });
     }
     return new Response(JSON.stringify({ data: { ok: true }, correlationId: "api-correlation" }), {
@@ -111,16 +128,21 @@ test("request builder uses backend headers and distinct selected driver sessions
   };
 
   try {
-    await apiRequest("/api/v1/demo/reset", { role: "demo", method: "POST", body: {}, idempotencyKey: "reset-key" });
+    await resetDemo();
     await apiRequest("/api/v1/recovery/simulate", { role: "agentRead", method: "POST", body: {}, idempotencyKey: "simulate-key" });
     await apiRequest("/api/v1/assignments/ASN-014/accept", { role: "driver014", method: "POST", body: {}, idempotencyKey: "accept-014" });
     await apiRequest("/api/v1/assignments/ASN-009/accept", { role: "driver009", method: "POST", body: {}, idempotencyKey: "accept-009" });
 
     const reset = requests.find(({ url }) => url.endsWith("/api/v1/demo/reset"));
+    assert.equal(reset.method, "POST");
     assert.equal(reset.headers.get("x-demo-operator-key"), "mock-operator-credential-not-real");
     assert.ok(reset.headers.get("x-request-id"));
-    assert.equal(reset.headers.get("idempotency-key"), "reset-key");
+    assert.ok(reset.headers.get("idempotency-key"));
     assert.equal(reset.headers.get("authorization"), null);
+
+    const state = requests.find(({ url }) => url.endsWith("/api/v1/demo/state"));
+    assert.equal(state.method, "GET");
+    assert.equal(state.headers.get("x-demo-operator-key"), "mock-operator-credential-not-real");
 
     const simulation = requests.find(({ url }) => url.endsWith("/api/v1/recovery/simulate"));
     assert.equal(simulation.headers.get("x-agent-api-key"), "mock-agent-read-credential-not-real");

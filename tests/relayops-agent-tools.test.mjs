@@ -79,7 +79,8 @@ test("getIncident uses the documented route and read-only scope", async () => {
   assert.equal(result.id, "INC-1042");
   assert.equal(calls[0].url.pathname, "/api/v1/incidents/INC-1042");
   assert.equal(calls[0].init.method, "GET");
-  assert.equal(calls[0].init.headers.get("Authorization"), "Bearer test-read");
+  assert.equal(calls[0].init.headers.get("X-Agent-API-Key"), "test-read");
+  assert.equal(calls[0].init.headers.get("Authorization"), null);
   assert.equal(calls[0].init.headers.get("X-Request-ID"), null);
   assert.equal(calls[0].init.headers.get("Idempotency-Key"), null);
 });
@@ -107,7 +108,8 @@ test("simulateReassignment is a typed read-scope POST and does not claim a mutat
 
   assert.deepEqual(await api.simulateReassignment(input), feasibility);
   assert.equal(calls[0].url.pathname, "/api/v1/recovery/simulate");
-  assert.equal(calls[0].init.headers.get("Authorization"), "Bearer test-read");
+  assert.equal(calls[0].init.headers.get("X-Agent-API-Key"), "test-read");
+  assert.equal(calls[0].init.headers.get("Authorization"), null);
   assert.deepEqual(JSON.parse(calls[0].init.body), input);
   assert.equal(calls[0].init.headers.get("Idempotency-Key"), null);
 });
@@ -130,7 +132,8 @@ test("proposeRecovery uses the separate propose scope and an idempotency key", a
 
   assert.equal((await api.proposeRecovery(proposalInput)).id, "PLAN-1");
   assert.equal(calls[0].url.pathname, "/api/v1/recovery/plans");
-  assert.equal(calls[0].init.headers.get("Authorization"), "Bearer test-propose");
+  assert.equal(calls[0].init.headers.get("X-Agent-API-Key"), "test-propose");
+  assert.equal(calls[0].init.headers.get("Authorization"), null);
   assert.equal(calls[0].init.headers.get("Idempotency-Key"), "test-id-1");
   assert.equal(calls[0].init.headers.get("X-Request-ID"), "test-id-2");
 });
@@ -179,7 +182,8 @@ test("execution requires an unconsumed current business approval before posting"
 
   assert.equal(result.assignmentId, "ASG-1");
   assert.equal(calls[0].url.pathname, "/api/v1/recovery/execute");
-  assert.equal(calls[0].init.headers.get("Authorization"), "Bearer test-execute");
+  assert.equal(calls[0].init.headers.get("X-Agent-API-Key"), "test-execute");
+  assert.equal(calls[0].init.headers.get("Authorization"), null);
   assert.equal(calls[0].init.headers.get("Idempotency-Key"), "once-1");
 });
 

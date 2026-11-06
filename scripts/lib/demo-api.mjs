@@ -22,9 +22,9 @@ const PERSONA_SESSION = Object.freeze({
 const personaCookies = new Map();
 
 export const INTEGRATION_ENV = Object.freeze([
-  "RELAYOPS_BASE_URL",
-  ...new Set(Object.values(ROLE_TOKEN_ENV)),
+  ...new Set(["RELAYOPS_BASE_URL", ...Object.values(ROLE_TOKEN_ENV)]),
 ]);
+
 
 export function integrationEnabled() {
   return process.env.RELAYOPS_RUN_INTEGRATION_TESTS === "1" && Boolean(process.env.RELAYOPS_BASE_URL);
@@ -79,9 +79,11 @@ async function personaCookie(persona) {
   const cookie = setCookie?.split(";", 1)[0];
   if (
     response.status !== 201 || payload?.data?.role !== session.role ||
+    (driverId && payload?.data?.driverId !== driverId) ||
     typeof payload?.correlationId !== "string" || !cookie || !/;\s*HttpOnly(?:;|$)/i.test(setCookie)
   ) {
-    throw new Error(`Could not establish the ${persona} demo session; expected HTTP 201, the documented envelope, and an HTTP-only cookie, received HTTP ${response.status}.`);
+    throw new Error(`Could not establish the ${persona} demo session; expected HTTP 201, the documented role-scoped envelope, and an HTTP-only cookie, received HTTP ${response.status}.`);
+
   }
   personaCookies.set(cacheKey, cookie);
   return cookie;

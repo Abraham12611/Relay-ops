@@ -67,7 +67,7 @@ At 4 contributors, bundle: **A E01/E03/E04/E05/E07**, **B E02/E08/E06**, **C E09
 - Single owner edits schema and canonical contracts, one integrator approves changes.
 - UI squads work against fixture JSON/mock transport with identical DTOs until API ready.
 - Agent squad works against local stubbed business API + real Switch agent, never mock Switch itself for demo.
-- Branch prefix `feat/eNN-shortname`; PR into main, small merges every 2–3h; critical service code reviewed before integration.
+- Branch prefix `feat/eNN-shortname`; PR into `develop` (never `main`), small reviewable slices; critical service code reviewed before integration.
 - Merge in order: contracts → seeded API → pages → agent hooks → integration → documentation.
 - Any blocked engineer switches to unit tests, story assets or independent role page; no uncontrolled schema changes.
 

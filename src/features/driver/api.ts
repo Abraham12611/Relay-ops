@@ -176,6 +176,7 @@ export function classifyDriverApiError(error: unknown): DriverApiErrorKind {
 
 export interface DriverApi {
   getJobs(): Promise<ApiEnvelope<DriverJobDto[]>>;
+  /** Combines the canonical ShipmentDto response with the active driver's scoped assignment. */
   getShipment(shipmentId: string): Promise<ApiEnvelope<ShipmentDetailDto>>;
   createIncident(input: CreateIncidentInput): Promise<ApiEnvelope<DriverIncidentDto>>;
   acceptAssignment(assignmentId: string): Promise<ApiEnvelope<DriverAssignmentDto>>;
@@ -225,7 +226,7 @@ export function createDriverApi(options: DriverApiOptions = {}): DriverApi {
   async function request<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
     let response: Response;
     try {
-      response = await fetcher(`${baseUrl}${path}`, init);
+      response = await fetcher(`${baseUrl}${path}`, { credentials: "same-origin", ...init });
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "The request could not reach the service.";
       throw new DriverApiError({
@@ -274,7 +275,20 @@ export function createDriverApi(options: DriverApiOptions = {}): DriverApi {
 
   return {
     getJobs: () => get<DriverJobDto[]>("/driver/jobs"),
-    getShipment: (shipmentId) => get<ShipmentDetailDto>(`/shipments/${encodeURIComponent(shipmentId)}`),
+    getShipment: async (shipmentId) => {
+      const [shipmentResponse, jobsResponse] = await Promise.all([
+        get<DriverShipmentDto>(`/shipments/${encodeURIComponent(shipmentId)}`),
+        get<DriverJobDto[]>("/driver/jobs"),
+      ]);
+      const driverJob = jobsResponse.data.find((job) => job.shipment.id === shipmentId);
+      return {
+        data: {
+          shipment: shipmentResponse.data,
+          assignment: driverJob?.assignment ?? null,
+        },
+        correlationId: shipmentResponse.correlationId,
+      };
+    },
     createIncident: (input) => mutate<DriverIncidentDto>("incidents:create", "/incidents", input),
     acceptAssignment: (assignmentId) => mutate<DriverAssignmentDto>(
       `assignments:${assignmentId}:accept`,

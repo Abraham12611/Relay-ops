@@ -4,11 +4,11 @@
 Show one uninterrupted incident from actual human input to genuine Switch-mediated agent collaboration and persisted customer outcome. **All shipments, drivers and metrics are fictitious.** Presentation should not imply production dispatch.
 
 ## Preflight (15 minutes before recording)
-- [ ] `main` HEAD checked out, install successful, DB seeded/reset using documented command.
+- [ ] `develop` HEAD checked out, install successful, local DB seeded/reset with `npm run reset:demo`; isolated service reset uses `npm run reset:service`.
 - [ ] App opens /demo, customer tracking, /driver and /ops in separate browser profiles/tabs.
 - [ ] Mattermost and Switch Console running; connected agent responds in a real room.
 - [ ] Agent service can reach `APP_BASE_URL` and secret is not exposed in browser.
-- [ ] Endpoints health checks green; reset is PRE-INCIDENT: INC-1042 is absent, VAN-014 is AVAILABLE, and the six assigned shipments are IN_TRANSIT.
+- [ ] Endpoints health checks green; reset is PRE-INCIDENT: INC-1042 is absent, VAN-014 is AVAILABLE, and the six assigned shipments are IN_TRANSIT; the driver report creates INC-1042.
 - [ ] Screen recording audio and text zoom tested, no account tokens visible.
 - [ ] Local time and seed fixtures deterministic; stable link to the real room.
 - [ ] Backup: screenshots from successful authentic rehearsal + separate narrated video segment if live connection falls over; **never stage fake chat as a real integration**.

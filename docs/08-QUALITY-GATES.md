@@ -47,16 +47,18 @@
 The repository provides these checks (Node.js 22.6+):
 
 - `npm ci` — install lockfile-pinned dependencies.
-- `npm test` — run deterministic fixture/feasibility and smoke-helper contract checks; live API tests are explicitly skipped in this default command.
-- `npm run typecheck` — type-check the TypeScript source.
-- `npm run test:integration` — require the service URL, demo-operator key, and distinct agent read/propose/execute keys, then exercise live API contract cases.
-- `npm run reset:demo` — reset an isolated demo service to PRE-INCIDENT and verify fixed seed IDs/time with no incident or incident links.
-- `npm run smoke` — execute the business-API recovery path and its authorization/idempotency/failure checks once.
+- `npm test` — migrate an isolated SQLite test database and run domain, API-persistence, agent-adapter, and smoke-helper tests; live API contract cases skip unless explicitly enabled.
+- `npm run typecheck` — generate the Prisma client and type-check the app, services, and tests.
+- `npm run build` — generate Prisma client and build the Next.js App Router app.
+- `npm run seed` / `npm run reset:demo` — restore the deterministic pre-incident baseline in the local database; `reset:demo` remains the Prisma CLI path.
+- `npm run reset:service` — use the protected HTTP reset endpoint for an isolated running demo service.
+- `npm run smoke:foundation` — verify the local persisted pre-incident fixture.
+- `npm run test:integration` — exercise the optional live API contract suite; requires the service URL and role-scoped credentials.
+- `npm run smoke` — run the live golden path; it starts by resetting the configured service through the protected HTTP endpoint and requires downstream workflow endpoints.
 
-The reset command restores PRE-INCIDENT; the smoke script must report the driver's breakdown to create INC-1042 before case-specific checks. Reset and smoke mutate or read the configured service, but neither starts an app server. The E01 bootstrap and E06 approval/execute implementation are not integrated in the current `develop` snapshot, and no Switch exchange or tool call has been authenticated; API tests, smoke, and Switch proof are not verified until run against those components. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for environment requirements and a two-run manual checklist.
+The smoke helper reports the driver's breakdown to create INC-1042 before incident-specific checks. Local tests cover the foundation APIs, selected driver sessions/jobs, persistence, and smoke-helper contracts, but do not validate E06 approval/execution, customer delivery routes, UI role flows, or Switch integration. After PR #12, E01's foundation is integrated; E06 approval/read/execute and driver lifecycle remain in draft PR #19, which currently conflicts with develop. No full-flow or live API check is claimed until E06 is integrated and tests run against the correct isolated environment. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for environment requirements and the two-run manual checklist.
 
-## Planned commands not implemented yet
-`npm run dev`, `npm run lint`, and `npm run seed` will be added as their application/database pieces land.
+`npm run dev` starts the Next.js app on port 3000 by default. `npm run lint` is not configured yet.
 
 ## Known risk prioritization
 P0 blockers: Switch not working, agent cannot reach API, approval execution broken, no driver/customer closure. P1: map glitch, replay charts, second agent, email integration. P2: fancy marketing page and charts.

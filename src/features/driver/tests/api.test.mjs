@@ -25,25 +25,50 @@ const assignment = {
   status: "ACCEPTED",
 };
 
-test("GET jobs and shipment use expected paths and decode the documented envelopes", async () => {
+test("shipment detail adapts the direct ShipmentDto contract and driver-scoped assignment data", async () => {
   const calls = [];
+  const shipment = {
+    id: "MED / #2048",
+    trackingCode: "TRK-2048",
+    customerId: "CUS-01",
+    assignedDriverId: "DRV-009",
+    assignedVehicleId: "VAN-009",
+    priority: "CRITICAL",
+    promisedAt: "2026-11-06T15:00:00.000Z",
+    etaAt: "2026-11-06T16:30:00.000Z",
+    status: "REASSIGNED",
+    units: 1,
+    proofOfDeliveryRef: null,
+  };
+  let jobsReads = 0;
   const api = createDriverApi({
     baseUrl: "/api/v1/",
     requestId: () => "request-get",
     fetcher: async (url, init) => {
       calls.push({ url, init });
-      if (url.endsWith("/driver/jobs")) return jsonResponse(200, envelope([]));
-      return jsonResponse(200, envelope({ shipment: { id: "MED / #2048" }, assignment }));
+      if (url.endsWith("/driver/jobs")) {
+        jobsReads += 1;
+        return jsonResponse(200, envelope(jobsReads === 1 ? [] : [{ assignment, shipment }]));
+      }
+      return jsonResponse(200, envelope(shipment));
     },
   });
 
   assert.deepEqual((await api.getJobs()).data, []);
   const detail = await api.getShipment("MED / #2048");
+  assert.equal(detail.data.shipment.id, "MED / #2048");
+  assert.equal(detail.data.shipment.trackingCode, "TRK-2048");
   assert.equal(detail.data.assignment.id, "ASN-1");
-  assert.equal(calls[0].url, "/api/v1/driver/jobs");
-  assert.equal(calls[1].url, "/api/v1/shipments/MED%20%2F%20%232048");
-  assert.equal(calls[0].init.headers["X-Request-ID"], "request-get");
-  assert.equal(calls[1].init.headers["X-Request-ID"], "request-get");
+  assert.deepEqual(calls.map(({ url }) => url), [
+    "/api/v1/driver/jobs",
+    "/api/v1/shipments/MED%20%2F%20%232048",
+    "/api/v1/driver/jobs",
+  ]);
+  for (const call of calls) {
+    assert.equal(call.init.headers["X-Request-ID"], "request-get");
+    assert.equal(call.init.credentials, "same-origin");
+    assert.equal(call.init.body, undefined);
+  }
 });
 
 test("incident, accept, pickup, and delivery mutations carry request/idempotency headers and documented bodies", async () => {
