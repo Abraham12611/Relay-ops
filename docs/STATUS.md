@@ -2,6 +2,14 @@
 
 **Baseline timestamp:** November 6, 2026 approximately 17:09 WAT. This is a planning status only, not ongoing automation. Update manually during build.
 
+## GitHub phase tracking
+
+- [F0 — Switch proof](https://github.com/Abraham12611/Relay-ops/issues/1)
+- [F1 — Foundation](https://github.com/Abraham12611/Relay-ops/issues/2)
+- [F2 — Parallel build](https://github.com/Abraham12611/Relay-ops/issues/3)
+- [F3 — Integration](https://github.com/Abraham12611/Relay-ops/issues/4)
+- [F4 — Demo and submission](https://github.com/Abraham12611/Relay-ops/issues/5)
+
 ## Phase gates
 | Gate | State | Evidence | Owner |
 |---|---|---|---|
