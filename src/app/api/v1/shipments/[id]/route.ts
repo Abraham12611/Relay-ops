@@ -1,5 +1,6 @@
 import { authorize } from "../../../../../lib/auth.ts";
 import { apiRoute, ApiFault } from "../../../../../lib/http.ts";
+import { shipmentDto } from "../../../../../lib/api-dto.ts";
 import { readShipment } from "../../../../../services/recovery.ts";
 
 export const runtime = "nodejs";
@@ -17,6 +18,6 @@ export async function GET(
         throw new ApiFault(403, "FORBIDDEN", "Drivers may only read shipments assigned to them.");
       }
     }
-    return { data: shipment };
+    return { data: shipmentDto(shipment) };
   });
 }

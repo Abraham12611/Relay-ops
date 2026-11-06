@@ -159,7 +159,7 @@ model Assignment {
 
 model BusinessEvent {
   id             String   @id
-  caseId         String
+  caseId         String?
   shipmentId     String?
   actorType      String
   actorId        String
@@ -169,7 +169,7 @@ model BusinessEvent {
   createdAt      DateTime
   correlationId  String
   idempotencyKey String?
-  incident       Incident @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  incident       Incident? @relation(fields: [caseId], references: [id], onDelete: Cascade)
   shipment       Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
 
   @@index([caseId, createdAt])
@@ -180,13 +180,13 @@ model BusinessEvent {
 model CustomerNotification {
   id        String    @id
   shipmentId String
-  caseId    String
+  caseId    String?
   channel   String
   content   String
   status    String
   createdAt DateTime
   shipment  Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
-  incident  Incident @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  incident  Incident? @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([shipmentId, status])
 }

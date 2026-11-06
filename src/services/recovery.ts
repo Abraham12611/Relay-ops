@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type {
+  Assignment,
+  DriverJob,
   RecoveryFeasibility,
   RecoveryProposal,
   RecoveryProposalInput,
@@ -9,6 +11,7 @@ import type {
 import type { Principal } from "../lib/auth.ts";
 import { prisma } from "../lib/db.ts";
 import { ApiFault } from "../lib/http.ts";
+import { shipmentDto } from "../lib/api-dto.ts";
 import { loadDemoScenario } from "../lib/scenario-from-db.ts";
 import { simulateReassignment } from "../domain/recovery-feasibility.ts";
 
@@ -153,6 +156,20 @@ export async function availableVehicles() {
     where: { status: "AVAILABLE" },
     orderBy: { code: "asc" },
   });
+}
+
+export async function listDriverJobs(userId: string): Promise<DriverJob[]> {
+  const driver = await prisma.driver.findUnique({ where: { userId }, select: { id: true } });
+  if (!driver) throw new ApiFault(403, "DRIVER_NOT_FOUND", "This demo persona is not assigned to a driver.");
+  const assignments = await prisma.assignment.findMany({
+    where: { driverId: driver.id, status: { in: ["PENDING", "ACCEPTED", "PICKED_UP"] } },
+    orderBy: { id: "asc" },
+    include: { shipment: true },
+  });
+  return assignments.map(({ shipment, ...assignment }) => ({
+    assignment: { ...assignment, status: assignment.status as Assignment["status"] },
+    shipment: shipmentDto(shipment),
+  }));
 }
 
 export async function readShipment(shipmentId: string) {

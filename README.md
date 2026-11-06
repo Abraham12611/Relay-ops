@@ -51,7 +51,7 @@ npm run reset:demo
 npm run dev
 ```
 
-The SQLite URL in `.env` is relative to `prisma/schema.prisma`; `file:../relayops.db` stores the database at the repository root. `npm run reset:demo` is destructive and restores the deterministic **PRE-INCIDENT** state: `VAN-014` is operational, its six shipments are `IN_TRANSIT`, and `INC-1042` does not exist. A driver breakdown report creates `INC-1042`, marks the vehicle broken, and moves those shipments to `AT_RISK`.
+The SQLite URL in `.env` is relative to `prisma/schema.prisma`; `file:../relayops.db` stores the database at the repository root. `npm run reset:demo` is destructive and restores the deterministic **PRE-INCIDENT** state: `VAN-014` is operational, its six shipments are `IN_TRANSIT`, and `INC-1042` does not exist. Seven customer-visible shipment-registration events are seeded at the same fixed timestamp; they do not create an incident. A driver breakdown report creates `INC-1042`, marks the vehicle broken, and moves those shipments to `AT_RISK`.
 
 Useful checks and data commands:
 
@@ -67,9 +67,9 @@ npm run test:integration # optional live API contract suite; requires service UR
 npm run smoke            # full live golden path; requires all roles and later workflow endpoints
 ```
 
-Demo sessions are issued by `POST /api/v1/demo/session` only with `x-demo-operator-key`; role identity is carried in a signed, HTTP-only cookie and validated server-side. Agent endpoints use `x-agent-api-key` with separate read, proposal, and execution keys. Never expose these keys to browser code. All responses use `{ data, correlationId }` or the shared `ApiErrorResponse` envelope.
+Demo sessions are issued by `POST /api/v1/demo/session` with `x-demo-operator-key`; the same-origin browser bridge at `POST /api/demo/session` keeps that key server-side. Driver sessions may select only `DRV-014` or `DRV-009`; the server signs the mapped user identity into an HTTP-only cookie. Agent endpoints use `x-agent-api-key` with separate read, proposal, and execution keys. Never expose these keys to browser code. All responses use `{ data, correlationId }` or the shared `ApiErrorResponse` envelope; valid `X-Request-ID` values are correlated on reads and writes.
 
-Implemented routes: `GET /api/v1/health`, demo session/state/reset, incident create/list/detail/affected shipments, shipment detail, available vehicles, recovery simulation, and version-checked recovery proposals. Approval lookup and recovery execution are not implemented by this foundation. API tests verify the driver report persists, duplicate requests dedupe, version conflicts are rejected, and state survives separate reads. The live golden-path tooling in `docs/DEMO-REHEARSAL.md` remains blocked on missing approval/execution and related downstream endpoints; neither local tests nor the API adapter proves a Switch/Mattermost connection.
+Implemented routes: `GET /api/v1/health`, demo session/state/reset, incident create/list/detail/affected shipments/events, driver jobs, shipment detail, available vehicles, recovery simulation, and version-checked recovery proposals. Customer tracking, approval decisions, recovery execution, assignment lifecycle mutations, and notifications are not implemented by this foundation. API tests verify the driver report persists, duplicate requests dedupe, version conflicts are rejected, and state survives separate reads. The live golden-path tooling in `docs/DEMO-REHEARSAL.md` remains blocked on missing approval/execution and related downstream endpoints; neither local tests nor the API adapter proves a Switch/Mattermost connection.
 
 ## Progress
 

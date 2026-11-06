@@ -16,11 +16,23 @@ export interface AuthorizationOptions {
 const SESSION_COOKIE = "relayops_demo_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 
-const demoUsers: Record<Role, string> = {
+export const demoDriverUsers = Object.freeze({
+  "DRV-014": "USR-DRIVER-014",
+  "DRV-009": "USR-DRIVER-009",
+});
+
+const defaultDemoUsers: Record<Role, string> = {
   CUSTOMER: "USR-CUSTOMER-01",
-  DRIVER: "USR-DRIVER-014",
+  DRIVER: demoDriverUsers["DRV-014"],
   DISPATCHER: "USR-DISPATCHER-01",
   DEMO: "USR-DEMO-01",
+};
+
+const demoUsers: Record<Role, readonly string[]> = {
+  CUSTOMER: [defaultDemoUsers.CUSTOMER],
+  DRIVER: Object.values(demoDriverUsers),
+  DISPATCHER: [defaultDemoUsers.DISPATCHER],
+  DEMO: [defaultDemoUsers.DEMO],
 };
 
 function configuredSecret(name: string): string | null {
@@ -63,7 +75,14 @@ export function isDemoOperator(request: Request): boolean {
   return safeEqual(request.headers.get("x-demo-operator-key"), configuredSecret("DEMO_OPERATOR_KEY"));
 }
 
-export function createDemoSessionToken(role: Role, now = Date.now()): string {
+export function createDemoSessionToken(
+  role: Role,
+  now = Date.now(),
+  userId = defaultDemoUsers[role],
+): string {
+  if (!demoUsers[role].includes(userId)) {
+    throw new ApiFault(400, "INVALID_DEMO_IDENTITY", "The selected demo user is not allowed for this persona.");
+  }
   if (!demoModeEnabled()) {
     throw new ApiFault(503, "DEMO_MODE_DISABLED", "Demo persona sessions are disabled.");
   }
@@ -72,7 +91,7 @@ export function createDemoSessionToken(role: Role, now = Date.now()): string {
     throw new ApiFault(503, "DEMO_AUTH_NOT_CONFIGURED", "Demo operator authentication is not configured.");
   }
   const payload = Buffer.from(JSON.stringify({
-    userId: demoUsers[role],
+    userId,
     role,
     expiresAt: Math.floor(now / 1000) + SESSION_TTL_SECONDS,
   })).toString("base64url");
@@ -103,7 +122,7 @@ function personaFromRequest(request: Request): Principal | null {
       !Object.hasOwn(demoUsers, session.role) ||
       typeof session.expiresAt !== "number" ||
       session.expiresAt <= Math.floor(Date.now() / 1000) ||
-      demoUsers[session.role as Role] !== session.userId
+      !demoUsers[session.role as Role].includes(session.userId)
     ) return null;
     return { kind: "persona", userId: session.userId, role: session.role as Role };
   } catch {
