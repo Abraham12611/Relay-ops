@@ -212,7 +212,38 @@ function exceptionPage(incidents, filters = {}) {
 }
 
 function safePlan(plan) {
-  return plan && typeof plan === "object" ? plan : null;
+  if (!plan || typeof plan !== "object") return null;
+  let feasibility = plan.feasibilitySnapshot ?? plan.feasibility;
+  if (typeof feasibility === "string") {
+    try { feasibility = JSON.parse(feasibility); } catch { feasibility = null; }
+  }
+  return feasibility ? { ...plan, feasibilitySnapshot: feasibility } : plan;
+}
+
+export function getExecutionReceipt(events = []) {
+  const event = [...events]
+    .filter((item) => item?.type === "REASSIGNMENT_EXECUTED")
+    .sort((left, right) => new Date(left.createdAt ?? 0) - new Date(right.createdAt ?? 0))
+    .at(-1);
+  if (!event) return null;
+
+  let payload = event.payload ?? {};
+  if (typeof payload === "string") {
+    try { payload = JSON.parse(payload); } catch { payload = {}; }
+  }
+  return {
+    eventId: payload.eventId ?? event.id ?? null,
+    planId: payload.planId ?? null,
+    planHash: payload.planHash ?? null,
+    planVersion: payload.planVersion ?? null,
+    approvalId: payload.approvalId ?? null,
+    assignmentId: payload.assignmentId ?? null,
+    shipmentId: payload.shipmentId ?? event.shipmentId ?? null,
+    caseId: payload.caseId ?? event.caseId ?? event.incidentId ?? null,
+    status: payload.resultingStatus ?? "EXECUTED",
+    executedAt: payload.executedAt ?? event.createdAt ?? null,
+    newEtaAt: payload.newEtaAt ?? null,
+  };
 }
 
 export function canDecideRecoveryPlan(incident, plan) {
@@ -237,14 +268,14 @@ function planEvidence(plan) {
     ${conflicts.length ? `<ul class="conflict-list">${conflicts.map((conflict) => `<li><span aria-hidden="true">!</span>${escapeHtml(conflict)}</li>`).join("")}</ul>` : `<p class="no-conflicts"><span aria-hidden="true">✓</span> No conflicts returned by the feasibility check.</p>`}`;
 }
 
-function approvalPanel(plan, incident, actionReceipt) {
+function approvalPanel(plan, incident, actionReceipt, persistedApproval, approvalError) {
   if (!plan) return `<section class="plan-card"><div class="plan-head"><div><p class="eyebrow">RECOVERY PLAN</p><h2>Awaiting agent proposal</h2></div>${badge("NOT RECORDED")}</div><p class="plan-empty-copy">A recommendation appears here only after the agent writes a versioned recovery plan to the business API. Nothing has been fabricated or approved.</p><div class="plan-empty-foot">Open the verified team room when the case response provides its real Mattermost URL; otherwise the room link is not configured.</div></section>`;
   const feasibility = plan.feasibilitySnapshot ?? plan.feasibility;
   const actorType = plan.createdByType ?? plan.proposedBy?.type ?? plan.proposedBy?.actorType;
   const title = actorType === "AGENT" ? "AI recovery recommendation" : "Recovery recommendation";
   const isCurrent = !incident.currentPlanId || incident.currentPlanId === plan.id;
   const canDecide = canDecideRecoveryPlan(incident, plan);
-  const pendingApproval = incident.approval ?? incident.currentApproval;
+  const pendingApproval = persistedApproval ?? incident.approval ?? incident.currentApproval ?? plan.approval;
   const hasReceipt = Boolean(actionReceipt);
   let stateMessage = "Approval is bound to this exact plan revision; execution remains a separate agent workflow.";
   if (!isCurrent) stateMessage = "This plan is not the current incident revision; refresh before making a decision.";
@@ -258,11 +289,23 @@ function approvalPanel(plan, incident, actionReceipt) {
     <div class="plan-targets"><div><span>Target vehicle</span><strong>${escapeHtml(plan.proposedVehicleId ?? "Not returned")}</strong></div><div><span>Target driver</span><strong>${escapeHtml(plan.proposedDriverId ?? "Not returned")}</strong></div><div><span>Revised ETA</span><strong>${escapeHtml(formatDate(plan.newEtaAt))}</strong></div><div><span>Plan revision</span><strong>v${escapeHtml(plan.version ?? "?")}</strong></div></div>
     <div class="evidence-title"><h3>Feasibility evidence</h3><span>API snapshot</span></div>${planEvidence(plan)}
     <div class="plan-identity"><div><span>Plan ID</span><code>${escapeHtml(plan.id ?? "Not returned")}</code></div><div><span>Bound hash</span><code>${escapeHtml(plan.hash ?? "Not returned")}</code></div></div>
+    ${approvalError ? `<div class="inline-warning">Persisted approval status could not be refreshed: ${escapeHtml(approvalError.message)}</div>` : ""}
     ${pendingApproval?.status ? `<div class="approval-state ${statusTone(pendingApproval.status)}"><strong>Approval ${escapeHtml(String(pendingApproval.status).replaceAll("_", " "))}</strong><span>${pendingApproval.approvedBy ? `By ${escapeHtml(pendingApproval.approvedBy)}` : "Decision actor not returned"}${pendingApproval.approvedAt ? ` · ${escapeHtml(formatDate(pendingApproval.approvedAt))}` : ""}</span></div>` : ""}
     ${hasReceipt ? `<div class="action-receipt"><span class="receipt-icon">✓</span><div><strong>${escapeHtml(receipt?.status ?? "Decision recorded")}</strong><p>Case ${escapeHtml(incident.id)} · exact plan v${escapeHtml(plan.version ?? "?")}${receiptId ? ` · Receipt <code>${escapeHtml(receiptId)}</code>` : ""}</p></div></div>` : ""}
     <p class="approval-note">${escapeHtml(stateMessage)}</p>
     <div class="approval-actions"><button class="button button-primary" type="button" data-action="approve" data-plan-id="${escapeHtml(plan.id)}" ${canDecide ? "" : "disabled"}>Approve this version</button><button class="button button-reject" type="button" data-action="reject" data-plan-id="${escapeHtml(plan.id)}" ${canDecide ? "" : "disabled"}>Reject</button></div>
   </section>`;
+}
+
+function executionReceiptPanel(receipt) {
+  if (!receipt) return "";
+  const shipmentLink = receipt.shipmentId
+    ? `<a class="text-link" data-nav href="/ops/shipments/${encodeURIComponent(receipt.shipmentId)}">Open persisted shipment record <span aria-hidden="true">→</span></a>`
+    : "";
+  return `<section class="content-card"><div class="section-heading"><div><p class="eyebrow">PERSISTED EXECUTION</p><h2>Recovery execution receipt</h2></div>${badge(receipt.status)}</div>
+    <p class="section-subtitle">Execution details below come from the persisted REASSIGNMENT_EXECUTED audit event.</p>
+    <div class="event-ids"><span>Assignment <code>${escapeHtml(receipt.assignmentId ?? "Not returned")}</code></span><span>Shipment <code>${escapeHtml(receipt.shipmentId ?? "Not returned")}</code></span><span>Event <code>${escapeHtml(receipt.eventId ?? "Not returned")}</code></span></div>
+    ${receipt.newEtaAt ? `<p>Updated ETA · ${escapeHtml(formatDate(receipt.newEtaAt))}</p>` : ""}${shipmentLink}</section>`;
 }
 
 function affectedTable(shipments, incidentId, relationError) {
@@ -272,6 +315,7 @@ function affectedTable(shipments, incidentId, relationError) {
 
 function casePage(snapshot, extra = {}) {
   const { incident, shipments = [], events = [], vehicle, driver, plan, roomUrl, shipmentError, eventsError } = snapshot;
+  const persistedExecution = getExecutionReceipt(events);
   const actualRoomUrl = safeUrl(roomUrl ?? snapshot.mattermostRoomUrl ?? snapshot.switch?.roomUrl ?? snapshot.chat?.url);
   const chatControl = actualRoomUrl
     ? `<a class="button button-secondary" href="${escapeHtml(actualRoomUrl)}" target="_blank" rel="noopener noreferrer">Open Mattermost room <span aria-hidden="true">↗</span></a>`
@@ -293,8 +337,9 @@ function casePage(snapshot, extra = {}) {
         <div class="fact-grid"><div class="fact"><span>Reported vehicle</span><strong>${escapeHtml(vehicle?.code ?? incident.vehicleId ?? "Not returned")}</strong><small>${escapeHtml(vehicle?.status ?? "Status not returned")}</small></div><div class="fact"><span>Reporter</span><strong>${escapeHtml(driver?.id ?? incident.reporterId ?? "Not returned")}</strong><small>${escapeHtml(driver?.dutyStatus ?? "Driver context not returned")}</small></div><div class="fact"><span>Created</span><strong>${escapeHtml(formatDate(incident.createdAt))}</strong><small>Source: business API</small></div><div class="fact"><span>Updated / resolved</span><strong>${escapeHtml(formatDate(incident.resolvedAt))}</strong><small>${incident.resolvedAt ? "Resolution timestamp" : "No resolution recorded"}</small></div></div>
       </section>
       <section class="content-card shipment-card"><div class="section-heading"><div><p class="eyebrow">CUSTOMER IMPACT</p><h2>Affected shipments</h2></div><span class="subtle-count">${shipments.length} listed</span></div>${shipmentError ? `<div class="inline-warning">${escapeHtml(shipmentError)}</div>` : ""}${affectedTable(shipments, incident.id, shipmentError)}</section>
+      ${executionReceiptPanel(persistedExecution)}
       <section class="content-card replay-card"><div class="section-heading"><div><p class="eyebrow">RECOVERY REPLAY</p><h2>Immutable case timeline</h2><p class="section-subtitle">Rendered from persisted API events, in chronological order.</p></div><span class="source-pill">EVENT SOURCE</span></div>${eventWarning}${timeline(events)}</section>
-    </div><aside class="case-side-column">${approvalPanel(plan, incident, extra.receipt)}
+    </div><aside class="case-side-column">${approvalPanel(plan, incident, extra.receipt, snapshot.approval, snapshot.approvalError)}
       <section class="content-card vehicle-context"><div class="section-heading"><div><p class="eyebrow">FLEET CONTEXT</p><h2>Vehicle & driver</h2></div></div><div class="vehicle-pair"><div class="vehicle-symbol" aria-hidden="true">V</div><div><strong>${escapeHtml(vehicle?.code ?? incident.vehicleId ?? "Vehicle not returned")}</strong><span>${escapeHtml(vehicle?.status ?? "Status unavailable")}</span></div></div><div class="capacity-line"><span>Capacity</span><strong>${vehicle?.occupiedUnits == null || vehicle?.capacityUnits == null ? "Not returned" : `${escapeHtml(vehicle.occupiedUnits)} / ${escapeHtml(vehicle.capacityUnits)} units`}</strong></div><div class="vehicle-pair driver-pair"><div class="avatar small">D</div><div><strong>${escapeHtml(driver?.id ?? "Driver context unavailable")}</strong><span>${escapeHtml(driver?.dutyStatus ?? "Duty status not returned")}</span></div></div>${chatControl}</section>
     </aside></div>`;
 }
@@ -324,13 +369,16 @@ export function filterIncidents(incidents, { query = "", status = "", severity =
   });
 }
 
-function normalizeCaseResponse(payload) {
+export function normalizeCaseResponse(payload) {
   const raw = unwrapData(payload) ?? {};
   const incident = raw.incident ?? raw.case ?? raw;
   const relationRows = raw.incidentShipments ?? raw.affectedShipments ?? raw.shipments ?? incident.affectedShipments ?? [];
   const initialShipments = Array.isArray(relationRows) ? relationRows.map((row) => row.shipment ?? row).filter((row) => row && typeof row === "object" && row.id) : [];
   const shipmentIds = Array.isArray(relationRows) ? relationRows.map((row) => row.shipmentId ?? row.id).filter(Boolean) : [];
-  const linkedPlan = raw.currentPlan ?? raw.recoveryPlan ?? raw.plan ?? raw.recoveryPlans?.find((plan) => plan.id === incident.currentPlanId) ?? null;
+  const linkedPlan = raw.currentPlan ?? raw.recoveryPlan ?? raw.plan
+    ?? raw.recoveryPlans?.find((plan) => plan.id === incident.currentPlanId)
+    ?? raw.plans?.find((plan) => plan.id === incident.currentPlanId)
+    ?? null;
   return {
     incident,
     shipments: initialShipments,
@@ -338,8 +386,17 @@ function normalizeCaseResponse(payload) {
     vehicle: raw.vehicle ?? raw.involvedVehicle ?? incident.vehicle ?? null,
     driver: raw.driver ?? raw.reporter ?? incident.driver ?? null,
     plan: safePlan(linkedPlan),
+    approval: linkedPlan?.approval ?? raw.approval ?? raw.currentApproval ?? null,
     roomUrl: raw.mattermostRoomUrl ?? raw.switch?.roomUrl ?? raw.chat?.url ?? null,
   };
+}
+
+function approvalFrom(payload) {
+  const value = unwrapData(payload);
+  if (!value || typeof value !== "object") return null;
+  if (Object.hasOwn(value, "approval")) return value.approval;
+  if (Object.hasOwn(value, "currentApproval")) return value.currentApproval;
+  return value;
 }
 
 function receiptFrom(payload) {
@@ -360,6 +417,7 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
   const filters = { query: "", status: "", severity: "" };
   const state = { health: null, loading: false, menuOpen: false, preview: previewMode, route: getRoute(windowRef.location.pathname) };
   let requestSequence = 0;
+  const listenerController = new AbortController();
 
   function toast(message) {
     const element = root.querySelector("#toast");
@@ -394,17 +452,35 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
 
   async function loadCase(caseId) {
     const detail = normalizeCaseResponse(await api.getIncident(caseId));
-    const [eventsResult, shipmentResults] = await Promise.all([
+    const [eventsResult, affectedResult, approvalResult] = await Promise.all([
       api.getEvents(caseId).then((value) => ({ value }), (error) => ({ error })),
-      Promise.all(detail.shipmentIds.map((id) => api.getShipment(id).then((value) => unwrapData(value)?.shipment ?? unwrapData(value), () => null))),
+      api.getIncidentShipments(caseId).then((value) => ({ value }), (error) => ({ error })),
+      detail.plan?.id
+        ? api.getApproval(detail.plan.id).then((value) => ({ value }), (error) => ({ error }))
+        : Promise.resolve({ value: null }),
     ]);
-    const shipments = detail.shipments.length ? detail.shipments : shipmentResults.filter(Boolean);
+    const affectedShipments = affectedResult.error
+      ? []
+      : getCollection(affectedResult.value, ["shipments", "incidentShipments", "items"]);
+    let shipments = affectedShipments.length ? affectedShipments : detail.shipments;
+    if (!shipments.length && detail.shipmentIds.length) {
+      const shipmentResults = await Promise.all(detail.shipmentIds.map((id) =>
+        api.getShipment(id).then((value) => unwrapData(value)?.shipment ?? unwrapData(value), () => null)));
+      shipments = shipmentResults.filter(Boolean);
+    }
+    const approvalError = approvalResult.error?.code === "APPROVAL_NOT_FOUND" ? null : approvalResult.error ?? null;
     return {
       ...detail,
       shipments,
+      approval: approvalResult.error ? detail.approval : approvalFrom(approvalResult.value) ?? detail.approval,
+      approvalError,
       events: eventsResult.error ? [] : eventItems(eventsResult.value),
       eventsError: eventsResult.error ?? null,
-      shipmentError: detail.shipmentIds.length && shipments.length === 0 ? "Affected shipment references were returned, but shipment details could not be loaded." : null,
+      shipmentError: affectedResult.error
+        ? `Affected shipments could not be refreshed: ${affectedResult.error.message}`
+        : detail.shipmentIds.length && shipments.length === 0
+          ? "Affected shipment references were returned, but shipment details could not be loaded."
+          : null,
     };
   }
 
@@ -451,10 +527,6 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
     }
     const key = cacheKey(route);
     const cached = cache.get(key);
-    if (!force && cached) {
-      render(pageFor(route, cached.data));
-      return;
-    }
     render(`<div class="loading-state" role="status"><span class="spinner"></span><div><strong>Loading operations data</strong><p>Reading the current state from the RelayOps API.</p></div></div>${renderSkeleton()}`);
     state.loading = true;
     try {
@@ -553,20 +625,20 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
         toast(`Case ${incident.id}: decision failed — ${error?.message ?? "request error"}.${correlation}`);
       }
     }
-  });
+  }, { signal: listenerController.signal });
 
   root.addEventListener("input", (event) => {
     const control = event.target;
     if (!(control instanceof HTMLInputElement) || control.dataset.filter !== "search") return;
     filters.query = control.value;
     updateFilteredQueue();
-  });
+  }, { signal: listenerController.signal });
   root.addEventListener("change", (event) => {
     const control = event.target;
     if (!(control instanceof HTMLSelectElement) || !control.dataset.filter) return;
     filters[control.dataset.filter] = control.value;
     updateFilteredQueue();
-  });
+  }, { signal: listenerController.signal });
 
   function updateFilteredQueue() {
     const list = root.querySelector("#exception-list");
@@ -579,12 +651,12 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
   }
 
   const onPopState = () => { void loadCurrent(); };
-  windowRef.addEventListener("popstate", onPopState);
+  windowRef.addEventListener("popstate", onPopState, { signal: listenerController.signal });
   void loadCurrent();
-  return Object.freeze({ refresh: () => loadCurrent({ force: true }), destroy: () => windowRef.removeEventListener("popstate", onPopState) });
+  return Object.freeze({ refresh: () => loadCurrent({ force: true }), destroy: () => listenerController.abort() });
 }
 
 if (typeof document !== "undefined") {
   const root = document.getElementById("app");
-  if (root) mountOpsApp(root);
+  if (root && root.dataset.opsMount !== "manual") mountOpsApp(root);
 }
