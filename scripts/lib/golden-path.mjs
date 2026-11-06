@@ -79,10 +79,12 @@ export async function runGoldenPath() {
   assert.equal(feasible.eligible, true, "seeded backup must be feasible");
   assert.equal(feasible.capacityOk, true);
   assert.deepEqual(feasible.conflicts, []);
+  const versionBeforeProposal = (await readIncident(incidentId)).version;
   const planV1 = await proposeRecovery(incidentId, `${runId}:plan-v1`);
   assert.ok(planV1.id && planV1.hash, "proposal must have a stable ID and hash");
-  assert.equal(planV1.version, 1, "first proposal must be version 1");
+  assert.equal(planV1.version, versionBeforeProposal + 1, "proposal version must advance from the persisted incident version");
   const afterProposal = await readIncident(incidentId);
+  assert.equal(afterProposal.version, planV1.version, "incident and current plan must share the bound version");
   assert.equal(afterProposal.status, "AWAITING_APPROVAL", "proposal must move the incident into approval review");
   addStep(steps, "agent-read feasibility succeeded and a versioned plan was proposed");
 
@@ -104,31 +106,26 @@ export async function runGoldenPath() {
     role: "agentPropose",
     method: "POST",
     idempotencyKey: `${runId}:agent-self-approval`,
-    body: { planId: planV1.id, planHash: planV1.hash, decision: "APPROVE" },
+    body: { planId: planV1.id, planHash: planV1.hash, planVersion: planV1.version, decision: "APPROVE" },
   });
   assertStatus(selfApproval, 403, "agent self-approval");
   assert.deepEqual((await readIncidentEvents(incidentId)).map(({ id }) => id), beforeForbiddenWrites, "forbidden actions must not append audit/business events");
   addStep(steps, "execution without approval and agent self-approval both forbidden with no event mutation");
 
-  const approvalV1 = await approvePlan(planV1, `${runId}:approval-v1`);
-  assert.ok(approvalV1.id, "dispatcher approval must have an ID");
-  assert.equal(approvalV1.planVersion, planV1.version, "approval must bind the exact plan version");
-  const approvalV1Read = await readApproval(planV1.id);
-  assert.equal(approvalV1Read.id, approvalV1.id);
-  assert.equal(approvalV1Read.planHash, planV1.hash);
-  assert.equal(approvalV1Read.planVersion, planV1.version);
-  assert.equal(approvalV1Read.decision, "APPROVE");
-  assert.equal(approvalV1Read.status, "APPROVED");
-  addStep(steps, "approval read confirmed the exact plan ID, hash, and version");
-
   const planV2 = await proposeRecovery(incidentId, `${runId}:plan-v2`);
   assert.equal(planV2.version, planV1.version + 1, "re-proposal must increment the plan version");
   assert.notEqual(planV2.hash, planV1.hash, "re-proposal must invalidate the previous plan hash");
-  const beforeStaleExecution = (await readIncidentEvents(incidentId)).map(({ id }) => id);
-  const staleExecution = await executePlan(approvalV1, planV1, `${runId}:stale-execution`);
-  assertStatus(staleExecution, 409, "execution using stale approval");
-  assert.deepEqual((await readIncidentEvents(incidentId)).map(({ id }) => id), beforeStaleExecution, "stale execution must not append business events");
-  addStep(steps, "re-plan incremented the version and stale approval was rejected without mutation");
+  const beforeStaleApproval = (await readIncidentEvents(incidentId)).map(({ id }) => id);
+  const staleApproval = await apiRequest("/api/v1/recovery/approvals", {
+    role: "dispatcher",
+    method: "POST",
+    idempotencyKey: `${runId}:stale-approval`,
+    body: { planId: planV1.id, planHash: planV1.hash, planVersion: planV1.version, decision: "APPROVE" },
+  });
+  assertStatus(staleApproval, 409, "dispatcher approval of stale plan");
+  assert.equal(staleApproval.payload.error.code, "STALE_PLAN_VERSION");
+  assert.deepEqual((await readIncidentEvents(incidentId)).map(({ id }) => id), beforeStaleApproval, "stale approval must not append business events");
+  addStep(steps, "re-proposal advanced the version and a stale dispatcher approval was rejected without mutation");
 
   const approvalV2 = await approvePlan(planV2, `${runId}:approval-v2`);
   assert.equal(approvalV2.planVersion, planV2.version, "approval must bind the current plan version");
@@ -199,6 +196,18 @@ export async function runGoldenPath() {
   responseData(delivery, [200, 201], "backup driver delivery");
   addStep(steps, "assigned backup driver accepted, picked up and delivered the critical shipment");
 
+  const afterCriticalDelivery = await readIncident(incidentId);
+  const remainingAffectedShipments = afterCriticalDelivery.affectedShipments ?? [];
+  const terminalStatuses = new Set(["DELIVERED", "DELIVERY_FAILED"]);
+  const terminalCount = remainingAffectedShipments.filter(({ status }) => terminalStatuses.has(status)).length;
+  assert.equal(remainingAffectedShipments.length, EXPECTED_AFFECTED_SHIPMENT_IDS.length);
+  assert.equal(remainingAffectedShipments.find(({ id }) => id === "MED-2048")?.status, "DELIVERED");
+  assert.equal(terminalCount, 1, "only the critical shipment should be terminal in this single-shipment recovery");
+  if (terminalCount < remainingAffectedShipments.length) {
+    assert.equal(afterCriticalDelivery.status, "MONITORING", "incident must remain in monitoring until all affected shipments are terminal");
+  }
+  addStep(steps, "incident remains MONITORING while the other five linked shipments remain nonterminal");
+
   const events = await readIncidentEvents(incidentId);
   const internalEvents = events.filter(({ visibility }) => visibility === "INTERNAL");
   assert.ok(internalEvents.length > 0, "case history should contain persisted internal audit events");
@@ -243,7 +252,7 @@ export async function runRejectedApprovalProbe() {
   });
   assert.equal(result.eligible, true, "seeded plan must be feasible for rejection test");
   const plan = await proposeRecovery(incidentId, `${runId}:plan`);
-  const approval = await approvePlan(plan, `${runId}:reject`, "REJECT");
+  const approval = await approvePlan(plan, `${runId}:reject`, "REJECT", "Negative-path test.");
   assert.equal(approval.planVersion, plan.version);
   const storedApproval = await readApproval(plan.id);
   assert.equal(storedApproval.status, "REJECTED");
@@ -252,4 +261,40 @@ export async function runRejectedApprovalProbe() {
   const attempt = await executePlan(approval, plan, `${runId}:execute-rejected`);
   assertStatus(attempt, [403, 409], "execution after rejected approval");
   assert.deepEqual((await readIncidentEvents(incidentId)).map(({ id }) => id), beforeRejectedExecution, "rejected approval execution must not append business events");
+}
+
+export async function runExpiredApprovalProbe() {
+  requireIntegrationEnvironment();
+  const runId = randomUUID();
+  await resetDemo();
+  const incident = await reportBreakdown(`${runId}:incident`);
+  const incidentId = incident.id ?? incident.incidentId;
+  const feasibility = await simulate({
+    incidentId,
+    shipmentId: "MED-2048",
+    targetDriverId: "DRV-009",
+    targetVehicleId: "VAN-009",
+  });
+  assert.equal(feasibility.eligible, true, "seeded plan must be feasible for expiry test");
+  const plan = await proposeRecovery(incidentId, `${runId}:plan`);
+  const approval = await approvePlan(plan, `${runId}:approve`);
+  const expiresAt = Date.parse(approval.expiresAt);
+  assert.ok(Number.isFinite(expiresAt), "approval must return its expiry timestamp");
+
+  const waitMs = expiresAt - Date.now() + 1_000;
+  assert.ok(waitMs <= 16 * 60 * 1_000, "approval expiry should be within the expected 16-minute test window");
+  if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+
+  const approvalRead = await apiRequest(`/api/v1/recovery/approvals/${encodeURIComponent(plan.id)}`, {
+    role: "dispatcher",
+  });
+  const expired = responseData(approvalRead, 200, "expired approval read");
+  assert.equal(expired.status, "EXPIRED", "the live API should persist expiry once its TTL elapsed");
+  assert.equal(expired.isCurrent, false, "an expired approval must not be current");
+
+  const attempt = await executePlan(approval, plan, `${runId}:execute-expired`);
+  assertStatus(attempt, [403, 409], "execution after expired approval");
+  const trackingResponse = await apiRequest("/api/v1/track/TRK-2048", { role: "customer" });
+  const tracking = responseData(trackingResponse, 200, "tracking after expired execution");
+  assert.equal((tracking.shipment ?? tracking).status, "IN_TRANSIT", "expired execution must not reassign the shipment");
 }

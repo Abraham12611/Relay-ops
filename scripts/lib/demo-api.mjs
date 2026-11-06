@@ -243,12 +243,18 @@ export async function proposeRecovery(incidentId, idempotencyKey) {
   return record(responseData(response, [200, 201], "recovery plan proposal"), "plan");
 }
 
-export async function approvePlan(plan, idempotencyKey, decision = "APPROVE") {
+export async function approvePlan(plan, idempotencyKey, decision = "APPROVE", reason) {
   const response = await apiRequest("/api/v1/recovery/approvals", {
     role: "dispatcher",
     method: "POST",
     idempotencyKey,
-    body: { planId: plan.id, planHash: plan.hash, planVersion: plan.version, decision },
+    body: {
+      planId: plan.id,
+      planHash: plan.hash,
+      planVersion: plan.version,
+      decision,
+      ...(reason === undefined ? {} : { reason }),
+    },
   });
   return record(responseData(response, [200, 201], `dispatcher ${decision.toLowerCase()} plan`), "approval");
 }

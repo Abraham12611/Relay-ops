@@ -17,7 +17,7 @@
 | F0 Switch + Mattermost agent proof | Not started | add authentic evidence link | E02 |
 | F1 Schema + seed + DTO freeze | Done | [PR #12](https://github.com/Abraham12611/Relay-ops/pull/12): merged Prisma schema/migration, deterministic PRE-INCIDENT reset, authenticated API routes and persistence foundation | E01/E03/E04 |
 | F2 Parallel features | Not started | PR links below | squads |
-| F3 Golden path integrated | In progress | [PR #17](https://github.com/Abraham12611/Relay-ops/pull/17): PRE-INCIDENT smoke harness and rehearsal checklist prepared; E01 foundation landed via [PR #12](https://github.com/Abraham12611/Relay-ops/pull/12), while draft [PR #19](https://github.com/Abraham12611/Relay-ops/pull/19) conflicts with current develop; no live flow claimed | E01 / E06 / E02 |
+| F3 Golden path integrated | In progress | [PR #17](https://github.com/Abraham12611/Relay-ops/pull/17): PRE-INCIDENT smoke harness and rehearsal checklist; E01, E02 and E06 work is integrated through [PR #12](https://github.com/Abraham12611/Relay-ops/pull/12), [PR #18](https://github.com/Abraham12611/Relay-ops/pull/18), and [PR #19](https://github.com/Abraham12611/Relay-ops/pull/19). Isolated local API contract and two clean-reset smoke executions passed; external service and authentic Switch proof remain unverified. | E01 / E06 / E02 |
 | F4 Video, README and submission | Not started | public links | E19/E20 |
 
 ## Ticket tracker
@@ -28,7 +28,7 @@
 | E03 | Done | — | [PR #12](https://github.com/Abraham12611/Relay-ops/pull/12): merged SQLite schema/migration and deterministic PRE-INCIDENT database seed | — |
 | E04 | Done | — | [PR #12](https://github.com/Abraham12611/Relay-ops/pull/12): merged shared contracts, server-enforced demo sessions, scoped agent authorization and versioned API routes | — |
 | E05 | Not started | — | — | — |
-| E06 | In progress | Engineer 6 | Draft [PR #19](https://github.com/Abraham12611/Relay-ops/pull/19): approval read/decision/execute, driver lifecycle, tracking, and closure routes | Conflicts with current develop after PR #12 merge; update/reconcile before full-flow integration checks |
+| E06 | Integrated | Engineer 6 | [PR #19](https://github.com/Abraham12611/Relay-ops/pull/19): merged approval read/decision/execute, driver lifecycle, tracking, and closure routes | External deployment and authentic Switch flow still need separate verification |
 | E07 | Not started | — | — | — |
 | E08 | Not started | — | — | — |
 | E09 | Not started | — | — | — |
@@ -39,8 +39,8 @@
 | E14 | Not started | — | — | — |
 | E15 | Not started | — | — | — |
 | E16 | Not started | — | — | — |
-| E17 | In review | Engineer 5 | [PR #17](https://github.com/Abraham12611/Relay-ops/pull/17): reset/session headers, response contracts, approval/execute assertions; `npm test` 29 passed / 3 live API cases skipped, typecheck and build passed | Live API verification awaits E06 integration and isolated credentials/service; none verified here |
-| E18 | In review | Engineer 5 | [PR #17](https://github.com/Abraham12611/Relay-ops/pull/17): PRE-INCIDENT reset, breakdown-created incident, six-step demo checklist and truthful Switch fallback | Full-flow API and authentic Switch proof are unverified; two independent golden-path runs remain outstanding |
+| E17 | In review | Engineer 5 | [PR #17](https://github.com/Abraham12611/Relay-ops/pull/17): reset/session headers, response contracts, E06 approval/execute, and monitoring-state assertions; `npm test` 37 passed / 3 skipped; typecheck/build/reset/foundation passed; isolated `npm run test:integration` passed; two independent `npm run smoke` runs passed, each leaving the incident `MONITORING` with five linked shipments nonterminal | External API credentials/service and authentic Switch verification are unavailable; local tests are not deployment evidence |
+| E18 | In review | Engineer 5 | [PR #17](https://github.com/Abraham12611/Relay-ops/pull/17): PRE-INCIDENT reset, breakdown-created incident, six-step demo checklist and truthful Switch fallback; two independent local API smoke runs passed from reset | Authentic Switch/Mattermost exchange and external service proof remain unverified |
 | E19 | Not started | — | — | — |
 | E20 | Not started | — | — | — |
 
@@ -60,7 +60,7 @@
 ## Blocker log
 | Time | Owner | Blocker | Decision / next action |
 |---|---|---|---|
-| 2026-11-06 | Engineer 5 / E01 / E06 / E02 | E01 PR #12 is merged; draft E06 PR #19 conflicts with current develop and needs nullable-case/allowlisted DRV-009 integration reconciled; no live API URL/credentials or authentic Switch exchange/tool call verified | Run full smoke only after PR #19 is integrated on an isolated test DB; keep authentic Switch proof as a separate gate |
+| 2026-11-06 | Engineer 5 / E02 | No external RelayOps service credentials/URL or authentic Switch/Mattermost exchange is verified; local isolated API smoke is not external or Switch proof | Keep external Switch proof as a separate gate; if unavailable, present only an explicitly labeled API-only fallback |
 
 ## Release cut line
 If F3 is at risk, stop maps, agent #2, extra flows, charts, email and marketing pages. Protect live-switch proof, approved execution, delivery closure and recorded submission.

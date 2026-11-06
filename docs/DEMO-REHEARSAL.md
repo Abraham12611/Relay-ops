@@ -1,6 +1,6 @@
 # Demo reliability and rehearsal gate
 
-This checklist supplements the [demo runbook](07-DEMO-RUNBOOK.md), [quality gates](08-QUALITY-GATES.md), workflow contract (03-WORKFLOWS.md), and API contract (05-DATA-API.md). It distinguishes the integrated foundation from the still-unverified full approval, delivery, UI, and Switch workflow.
+This checklist supplements the [demo runbook](07-DEMO-RUNBOOK.md), [quality gates](08-QUALITY-GATES.md), workflow contract (03-WORKFLOWS.md), and API contract (05-DATA-API.md). It distinguishes local API verification from external deployment, role-specific UI, and authentic Switch evidence.
 
 ## Local foundation checks and reset
 
@@ -52,21 +52,30 @@ Each invocation performs a fresh protected HTTP reset. Run it twice as two indep
 
 ## Current integration and evidence status
 
-E01's foundation, nullable case links, PRE-INCIDENT seed, allowlisted driver sessions, and incident/event routes landed in `develop` through merged PR #12. E06's approval/read/execute, driver lifecycle, tracking, and closure work remains in draft PR #19. After PR #12 merged, GitHub reported that PR #19 diverges from and conflicts with the current `develop` tip; Engineer 6 has been asked to reconcile it, including the selected `DRV-009` session behavior. After merging current `develop` (base `57cb965`) into PR #17, local validation passed: `npm ci`; `npm test` with 29 passed, 0 failed, and 3 live API contract cases skipped; `npm run typecheck`; and `npm run build`. These are local foundation/helper checks only, not evidence for E06 or an external service. The full smoke has not run against an integrated E06 backend. No live API URL or role credentials were verified in this Session.
+E01 is integrated through PR #12, E06 approval/read/execute and driver/customer lifecycle through PR #19, and E02 agent tooling through PR #18; all are present on current `develop` (`9522053`). PR #17's existing branch is updated onto that base and remains open for coordinator review.
 
-Engineer 2's latest check found no real Switch/Mattermost exchange, `relay-recovery` reply, reachable RelayOps API, or live business-tool call. Adapter tests using mocked fetch are not live evidence. Do not claim API, Switch, or golden-path success until actually observed against the integrated service or authentic room.
+Verification on the updated branch:
+
+- `npm ci` — passed; 79 packages installed, zero vulnerabilities.
+- `npm test` — passed: 37 passed, 0 failed, 3 skipped. The skips are the opt-in live API contract and two live agent HTTP checks; a skip is not a pass.
+- `npm run typecheck` and `npm run build` — passed.
+- `npm run reset:demo` and `npm run smoke:foundation` — passed against a disposable local SQLite database; PRE-INCIDENT was verified.
+- `npm run test:integration` — passed: 1 live contract test, 0 failed, 0 skipped, against an isolated local Next.js service and disposable SQLite database. It exercised the full API path, rejected approval, and customer projection.
+- `npm run smoke` — passed twice as two separate executions; each began with the protected HTTP reset and completed the driver-to-customer API workflow.
+
+The live HTTP results are from a local test service using temporary local-only credentials, not an external deployment. No external RelayOps URL/credentials, real Switch/Mattermost room exchange, `relay-recovery` reply, or authentic Switch business-tool call was verified. The smoke is API-only evidence and must not be presented as Switch proof. The optional TTL expiry probe (`npm run test:integration:expiry`) was not run.
 
 ## Critical automated cases
 
 | Area | Assertion | Evidence boundary |
 |---|---|---|
-| Reset baseline | PRE-INCIDENT; no incident or incident-shipment links; six fixed shipments remain `IN_TRANSIT` on available `VAN-014` | Local tests can validate fixture shape; service reset requires isolated API |
-| Incident intake | Driver report creates `INC-1042`; same idempotency key returns the same case without a duplicate event | Requires integrated API for persistence evidence |
+| Reset baseline | PRE-INCIDENT; no incident or incident-shipment links; six fixed shipments remain `IN_TRANSIT` on available `VAN-014` | Both local HTTP smoke runs verified the protected reset; no external service reset was tested |
+| Incident intake | Driver report creates `INC-1042`; same idempotency key returns the same case without a duplicate event | Verified by local HTTP smoke and isolated persistence tests; external deployment unverified |
 | Capacity | Feasible backup; broken vehicle and mismatched driver/vehicle rejected | Local domain tests cover feasibility; API simulation needs service |
-| Approval and versioning | Approval binds exact plan ID/hash/version; stale, rejected, expired, and consumed approvals cannot execute | Requires E06 API integration |
-| Execution | No-approval and agent self-approval writes fail; duplicate execute replays the same receipt | Requires E06 API integration and persistence |
-| Driver lifecycle | Wrong driver and delivery-before-pickup fail; backup driver accepts, picks up, and delivers | Requires integrated assignment routes |
-| Customer projection | Delivered status is visible without internal event IDs or private fields | Requires integrated tracking route |
+| Approval and versioning | Approval binds exact plan ID/hash/version; stale dispatcher decisions and rejected approvals cannot mutate/execute | Local HTTP smoke verifies exact binding and stale/rejected paths; persistence tests cover further states; external deployment unverified |
+| Execution | No-approval and agent self-approval writes fail; duplicate execute replays the same receipt; the incident stays `MONITORING` while five linked shipments remain nonterminal after MED-2048 delivery | Verified by local HTTP smoke and isolated persistence tests; external deployment unverified |
+| Driver lifecycle | Wrong driver and delivery-before-pickup fail; backup driver accepts, picks up, and delivers | Verified by local HTTP smoke; role-specific UI and external deployment unverified |
+| Customer projection | Delivered status is visible without internal event IDs or private fields | Verified by local HTTP smoke; customer UI and external deployment unverified |
 | Switch | Real human message, agent response, and actual business-tool call | Requires authentic Switch/Mattermost evidence; API output is not proof |
 
 ## Quick live-demo checklist
