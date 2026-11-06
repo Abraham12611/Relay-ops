@@ -39,8 +39,8 @@
 | E14 | Not started | — | — | — |
 | E15 | Not started | — | — | — |
 | E16 | Not started | — | — | — |
-| E17 | Not started | — | — | — |
-| E18 | Not started | — | — | — |
+| E17 | In progress | Engineer 5 | Local fixture tests pass; live API contract suite added in `tests/api-contract.test.mjs` | Persistent API/auth routes and role credentials unavailable; live tests not run |
+| E18 | In progress | Engineer 5 | Reset/smoke scripts and two-run checklist added; branch PR pending | No runnable API; two uninterrupted runs and authentic Switch proof remain blocked |
 | E19 | Not started | — | — | — |
 | E20 | Not started | — | — | — |
 
@@ -60,7 +60,7 @@
 ## Blocker log
 | Time | Owner | Blocker | Decision / next action |
 |---|---|---|---|
-| — | — | — | — |
+| 2026-11-06 | Engineer 5 / E02 | No runnable RelayOps API or authentic Switch activity; no base URL/role credentials, and E02 reports no Docker/Switch service in its cloud environment | Added gated contract smoke/reset tooling and rehearsal checklist; resume live verification when API, credentials and real Switch room are available |
 
 ## Release cut line
 If F3 is at risk, stop maps, agent #2, extra flows, charts, email and marketing pages. Protect live-switch proof, approved execution, delivery closure and recorded submission.

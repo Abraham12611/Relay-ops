@@ -44,16 +44,19 @@
 **G0** project compiles; lint/types pass. **G1** seed/reset deterministic and contracts agreed. **G2** domain/API tests green. **G3** actual Switch conversation + tool calls proven. **G4** all P0 steps pass manually twice from clean reset. **G5** full video recorded and readable. **G6** repo README reproducibility verified by a teammate not author.
 
 ## Current foundation commands
-The repository currently provides these checks (Node.js 22.6+):
+The repository provides these checks (Node.js 22.6+):
 
-- `npm install` — install the TypeScript compiler dependency.
-- `npm test` — run the fixture and read-only feasibility tests.
+- `npm ci` — install lockfile-pinned dependencies.
+- `npm test` — run deterministic fixture/feasibility checks; live API tests are explicitly skipped in this default command.
 - `npm run typecheck` — type-check the TypeScript source.
+- `npm run test:integration` — require the service URL and all role-scoped tokens, then exercise live API contract cases.
+- `npm run reset:demo` — reset an isolated demo service and verify fixed seed IDs, time, and links.
+- `npm run smoke` — execute the business-API recovery path and its authorization/idempotency/failure checks once.
 
-These checks cover only the in-memory foundation; they do not validate persistence, HTTP authorization, UI flows, or Switch integration.
+The reset and smoke commands mutate or read the configured service, but none starts an app server. The current checkout still has no routes, persistent store, UI, or live Switch integration. API tests and smoke are not verified until run against those components. See [the demo rehearsal gate](DEMO-REHEARSAL.md) for environment requirements and a two-run manual checklist.
 
 ## Planned commands not implemented yet
-`npm run dev`, `npm run lint`, `npm run seed`, `npm run reset:demo`, and `npm run smoke` will be added as their application/database pieces land.
+`npm run dev`, `npm run lint`, and `npm run seed` will be added as their application/database pieces land.
 
 ## Known risk prioritization
 P0 blockers: Switch not working, agent cannot reach API, approval execution broken, no driver/customer closure. P1: map glitch, replay charts, second agent, email integration. P2: fancy marketing page and charts.
