@@ -31,7 +31,7 @@ Switch resources: https://www.wemakedevs.org/hackathons/switch/resources and htt
 
 ## Golden path
 
-Driver reports breakdown → incident created → AI investigates and speaks **in the Switch-connected Mattermost room** → dispatcher reviews plan → authorized approval → agent uses real business API to reassign → backup driver accepts → customer sees ETA update → proof of delivery → case closed → judge sees the same case ID and auditable history across every interface.
+Driver reports breakdown → incident created → AI investigates and speaks **in the Switch-connected Mattermost room** → dispatcher reviews plan → authorized approval → agent uses real business API to reassign → backup driver accepts → customer sees ETA update → proof of delivery → critical shipment delivered (incident remains MONITORING while five other affected packages are unresolved) → judge sees the same case ID and auditable history across every interface.
 
 ## Non-negotiable demonstration proof
 
