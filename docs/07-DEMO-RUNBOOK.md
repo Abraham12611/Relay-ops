@@ -4,11 +4,14 @@
 Show one uninterrupted incident from actual human input to genuine Switch-mediated agent collaboration and persisted customer outcome. **All shipments, drivers and metrics are fictitious.** Presentation should not imply production dispatch.
 
 ## Preflight (15 minutes before recording)
-- [ ] `develop` HEAD checked out, install successful, local DB seeded/reset with `npm run reset:demo`; isolated service reset uses `npm run reset:service`.
-- [ ] App opens /demo, customer tracking, /driver and /ops in separate browser profiles/tabs.
+- [ ] `develop` HEAD checked out, install successful, DB seeded/reset using documented command.
+- [ ] Open /demo and confirm API health plus the server-reported scenario stage; the launchpad links customer tracking, driver, /ops and the exception queue.
+- [ ] If rehearsing with concurrent roles, use separate browser profiles: dispatcher/customer persona selection issues the signed HttpOnly demo cookie for that profile, and every tab in the same profile shares it. The driver page retains its DRV-014 / DRV-009 selector.
+- [ ] Browser scenario reset is available only with DEMO_MODE=true on a configured non-production server. Type RESET SCENARIO in the confirmation dialog and verify a freshly fetched PRE-INCIDENT state. Never point the browser reset at production or a shared database; for an isolated local database, use `npm run reset:demo`.
+- [ ] For the isolated HTTP integration harness, use `npm run reset:service`; verify no INC-1042, VAN-014 AVAILABLE, and six shipments IN_TRANSIT before reporting the breakdown.
 - [ ] Mattermost and Switch Console running; connected agent responds in a real room.
 - [ ] Agent service can reach `APP_BASE_URL` and secret is not exposed in browser.
-- [ ] Endpoints health checks green; reset is PRE-INCIDENT: INC-1042 is absent, VAN-014 is AVAILABLE, and the six assigned shipments are IN_TRANSIT; the driver report creates INC-1042.
+- [ ] Endpoints health checks green; `INC-1042` is absent after reset and becomes open only after the driver reports the breakdown.
 - [ ] Screen recording audio and text zoom tested, no account tokens visible.
 - [ ] Local time and seed fixtures deterministic; stable link to the real room.
 - [ ] Backup: screenshots from successful authentic rehearsal + separate narrated video segment if live connection falls over; **never stage fake chat as a real integration**.
@@ -30,8 +33,8 @@ Show one uninterrupted incident from actual human input to genuine Switch-mediat
 If demo is over 5 minutes, trim navigation, **not** the actual human-agent exchange or approval evidence.
 
 ## Live judge operator sequence
-1. Open /demo. Click RESET SCENARIO. Confirm health green, PRE-INCIDENT state, and no INC-1042. Open /track/TRK-2048.
-2. In driver portal as DRV-014 report BREAKDOWN (summary: engine failure). Confirm the response creates INC-1042 before opening its case page.
+1. Open /demo. Confirm health and scenario status. If this run uses an isolated local database, choose Reset scenario, type RESET SCENARIO, and wait for a fresh PRE-INCIDENT status. Select the dispatcher persona and use Open operations dashboard; use a separate browser profile for customer and driver roles. Open /track/TRK-2048. Browser reset is disabled in production; never use it on a shared or production database.
+2. In driver portal as DRV-014 report BREAKDOWN (summary: engine failure). Confirm incident INC-1042 is created by this action before opening its case page.
 3. Open real Mattermost operations room: `@relay-recovery investigate INC-1042, tell me affected shipments and recommend a feasible backup; do not execute`. Capture agent calling `getIncident` and `simulateReassignment`.
 4. Review plan in /ops/exceptions/INC-1042. Challenge an assumption in room; agent answers using actual data. Approve exact plan via dashboard, NOT only chat text.
 5. In room: `@relay-recovery execute the approved recovery plan for INC-1042 and report assignment ID`. Verify actual tool receipt.
