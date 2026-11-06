@@ -47,7 +47,7 @@ npm test
 npm run typecheck
 ```
 
-The tests exercise the deterministic in-memory fixture and pure recovery checks. They do not start a web server, persist state, or prove a Switch/Mattermost connection. API routes, database migrations/seeding, UI, and the remaining planned scripts (`dev`, `lint`, `seed`, `reset:demo`, `smoke`) have not been implemented yet.
+`npm test` exercises the deterministic in-memory fixture and pure recovery checks; its live API contract tests are skipped unless explicitly run through `npm run test:integration`. The new `npm run reset:demo` and `npm run smoke` scripts require a running API and role-scoped demo credentials; they do not start a web server or prove a Switch/Mattermost connection. See [the demo rehearsal gate](docs/DEMO-REHEARSAL.md) for exact setup, commands, cases, and evidence requirements. API routes, database migrations/seeding, UI, and `dev`, `lint`, and `seed` commands remain unimplemented.
 
 ## Progress
 

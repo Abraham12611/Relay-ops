@@ -8,6 +8,9 @@
   },
   "scripts": {
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/*.test.mjs",
+    "test:integration": "node scripts/run-integration-tests.mjs",
+    "reset:demo": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/reset-demo.mjs",
+    "smoke": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/golden-path-smoke.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

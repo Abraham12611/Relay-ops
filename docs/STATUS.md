@@ -39,8 +39,8 @@
 | E14 | Not started | — | — | — |
 | E15 | Not started | — | — | — |
 | E16 | Not started | — | — | — |
-| E17 | Not started | — | — | — |
-| E18 | Not started | — | — | — |
+| E17 | In review | Engineer 5 | [PR #9](https://github.com/Abraham12611/Relay-ops/pull/9): local tests 10 passed; API contract suite added (3 skipped without service) | Persistent API/auth routes and role credentials unavailable; live tests not run |
+| E18 | In review | Engineer 5 | [PR #9](https://github.com/Abraham12611/Relay-ops/pull/9): reset/smoke scripts and two-run checklist | No runnable API; two uninterrupted runs and authentic Switch proof remain blocked |
 | E19 | Not started | — | — | — |
 | E20 | Not started | — | — | — |
 
@@ -60,7 +60,7 @@
 ## Blocker log
 | Time | Owner | Blocker | Decision / next action |
 |---|---|---|---|
-| — | — | — | — |
+| 2026-11-06 | Engineer 5 / E02 | No runnable RelayOps API or authentic Switch activity; no base URL/role credentials, and E02 reports no Docker/Switch service in its cloud environment | Added gated contract smoke/reset tooling and rehearsal checklist; resume live verification when API, credentials and real Switch room are available |
 
 ## Release cut line
 If F3 is at risk, stop maps, agent #2, extra flows, charts, email and marketing pages. Protect live-switch proof, approved execution, delivery closure and recorded submission.
