@@ -43,8 +43,17 @@
 ## Quality gates
 **G0** project compiles; lint/types pass. **G1** seed/reset deterministic and contracts agreed. **G2** domain/API tests green. **G3** actual Switch conversation + tool calls proven. **G4** all P0 steps pass manually twice from clean reset. **G5** full video recorded and readable. **G6** repo README reproducibility verified by a teammate not author.
 
-## Commands to provide when code exists
-`npm install`, `npm run dev`, `npm run typecheck`, `npm run lint`, `npm run test`, `npm run seed`, `npm run reset:demo`, `npm run smoke`. **These are planned script names; they do not yet exist.** Document exact commands once implemented.
+## Current foundation commands
+The repository currently provides these checks (Node.js 22.6+):
+
+- `npm install` — install the TypeScript compiler dependency.
+- `npm test` — run the fixture and read-only feasibility tests.
+- `npm run typecheck` — type-check the TypeScript source.
+
+These checks cover only the in-memory foundation; they do not validate persistence, HTTP authorization, UI flows, or Switch integration.
+
+## Planned commands not implemented yet
+`npm run dev`, `npm run lint`, `npm run seed`, `npm run reset:demo`, and `npm run smoke` will be added as their application/database pieces land.
 
 ## Known risk prioritization
 P0 blockers: Switch not working, agent cannot reach API, approval execution broken, no driver/customer closure. P1: map glitch, replay charts, second agent, email integration. P2: fancy marketing page and charts.

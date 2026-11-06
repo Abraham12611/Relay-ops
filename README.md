@@ -4,7 +4,7 @@
 
 RelayOps is a hackathon-focused operational workflow demonstrating how dispatchers, drivers, customers and AI agents collaboratively recover a time-critical shipment after a vehicle breakdown. **Switch is the required collaboration layer**, connecting a real AI agent to a real Mattermost team room. The business application maintains shipments, cases, approvals, and event history.
 
-> Status: **planning baseline, not an implemented product**. All demo shipments, drivers, locations, timestamps and outcomes are synthetic. Follow the implementation gates and do not claim real Switch integration until tested.
+> Status: **foundation implementation started; this is not yet a runnable product**. Shared domain/API types, an immutable synthetic scenario, and read-only recovery feasibility checks are implemented. Persistence, HTTP routes, UI, and Switch connectivity remain unimplemented. Do not claim real Switch integration until tested.
 
 ## Start here
 
@@ -37,6 +37,18 @@ Driver reports breakdown → incident created → AI investigates and speaks **i
 
 A genuine Switch-mediated agent exchange, verified business API/tool calls, persistent changes visible in the UI, explicit human authorization, and an unbroken case timeline. UI-only simulations do **not** fulfill the Switch requirement.
 
+## Development foundation
+
+Requires Node.js 22.6 or newer. From the repository root:
+
+```bash
+npm install
+npm test
+npm run typecheck
+```
+
+The tests exercise the deterministic in-memory fixture and pure recovery checks. They do not start a web server, persist state, or prove a Switch/Mattermost connection. API routes, database migrations/seeding, UI, and the remaining planned scripts (`dev`, `lint`, `seed`, `reset:demo`, `smoke`) have not been implemented yet.
+
 ## Progress
 
-See [STATUS](docs/STATUS.md). **No software has been implemented by this documentation commit.**
+See [STATUS](docs/STATUS.md) for the current gate and package status. All fixture people, shipments, vehicles, times, and outcomes are synthetic.
