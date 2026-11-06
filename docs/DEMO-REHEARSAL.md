@@ -52,7 +52,7 @@ Each invocation performs a fresh protected HTTP reset. Run it twice as two indep
 
 ## Current integration and evidence status
 
-E01 is integrated through PR #12, E06 approval/read/execute and driver/customer lifecycle through PR #19, and E02 agent tooling through PR #18; all are present on current `develop` (`9522053`). PR #17's existing branch is updated onto that base and remains open for coordinator review.
+E01 is integrated through PR #12, E06 approval/read/execute and driver/customer lifecycle through PR #19, and E02 agent tooling through PR #18; all are present on current `develop`. PR #17's full QA corrections were reviewed, GitHub Actions passed, and the PR was merged into `develop` as commit `d010dce`.
 
 Verification on the updated branch:
 
