@@ -1,20 +1,10 @@
 # Customer tracking feature
 
-Route served after application bootstrap: **`/track/[trackingCode]`**. The feature owns a framework-independent TypeScript view and scoped stylesheet; it does not add or mount a route.
+The App Router mounts this framework-independent TypeScript view at **`/track/[trackingCode]`** from `src/app/track/[trackingCode]/page.tsx`; the route also imports this feature's scoped stylesheet. The feature remains responsible only for its view and API adapter, not the Next.js root shell or tracking endpoint implementation.
 
-## Mounting
+## Mount lifecycle
 
-A future route can mount the view into its page container and clean it up when that route unmounts:
-
-```ts
-import { mountCustomerTracking } from "./src/features/customer/customer-tracking.ts";
-import "./src/features/customer/customer-tracking.css";
-
-const unmount = mountCustomerTracking(container, "TRK-2048");
-// Call unmount() when leaving the route.
-```
-
-`mountCustomerTracking(container, trackingCode, options?)` immediately fetches saved state and polls every five seconds by default. Pass `{ pollIntervalMs: 0 }` to disable polling or `{ fetcher }` to inject a fetch implementation. It returns a cleanup function that stops polling and aborts an in-flight request.
+The client route mounts the view in an effect and calls its cleanup function when the route unmounts or the tracking code changes. `mountCustomerTracking(container, trackingCode, options?)` immediately fetches saved state and polls every five seconds by default. Pass `{ pollIntervalMs: 0 }` to disable polling or `{ fetcher }` to inject a fetch implementation. Cleanup stops polling and aborts an in-flight request.
 
 ## API contract expected by this feature
 
@@ -55,7 +45,7 @@ The endpoint must project only customer-visible event content; it must not send 
 ## What is real vs. not available yet
 
 - **Real in this module:** the route-ready customer view, loading/not-found/error states, explicit stale-data handling, ETA comparison, status stepper, and rendering of validated public timeline/notification data returned by the endpoint. Refreshes always request durable API state; the UI contains no seeded success data or fake events.
-- **Unavailable until backend integration:** persistence and the tracking endpoint itself. This repository foundation has no HTTP routes or backend yet, so without that endpoint the page will truthfully show service unavailable. The view does not perform mutations, send notifications, expose live GPS, or calculate route predictions.
+- **Backend boundary:** the public tracking GET is owned by the API layer, not this feature. If that endpoint is unavailable, the page truthfully shows service unavailable rather than sample shipment state. The view does not perform mutations, send notifications, expose live GPS, or calculate route predictions.
 - **Delivery confirmation:** shown only when the API returns `shipment.status: "DELIVERED"`; a delivery timestamp is shown only when the API provides `deliveredAt`.
 
 ## Tests

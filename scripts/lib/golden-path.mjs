@@ -29,24 +29,6 @@ export async function runGoldenPath() {
   await resetDemo();
   addStep(steps, "reset restored the fixed seed state");
 
-  const invalidBrokenVehicle = await simulate({
-    incidentId: "INC-1042",
-    shipmentId: "MED-2048",
-    targetDriverId: "DRV-014",
-    targetVehicleId: "VAN-014",
-  });
-  assert.equal(invalidBrokenVehicle.eligible, false, "broken vehicle must be infeasible");
-  addStep(steps, "broken-vehicle simulation rejected");
-
-  const invalidAssignment = await simulate({
-    incidentId: "INC-1042",
-    shipmentId: "MED-2048",
-    targetDriverId: "DRV-014",
-    targetVehicleId: "VAN-009",
-  });
-  assert.equal(invalidAssignment.eligible, false, "mismatched driver/vehicle must be infeasible");
-  addStep(steps, "mismatched driver/vehicle simulation rejected");
-
   const incidentKey = `${runId}:incident`;
   const incident = await reportBreakdown(incidentKey);
   const incidentId = incident.id ?? incident.incidentId;
@@ -57,6 +39,24 @@ export async function runGoldenPath() {
   assert.equal(duplicateIncident.id ?? duplicateIncident.incidentId, incidentId, "duplicate report must return the same case");
   assert.equal(incidentEvents.length, eventsAfterFirstReport.length, "duplicate report must not append another event");
   addStep(steps, "driver breakdown created/reused the fixed incident; duplicate key returned the same case without another event");
+
+  const invalidBrokenVehicle = await simulate({
+    incidentId,
+    shipmentId: "MED-2048",
+    targetDriverId: "DRV-014",
+    targetVehicleId: "VAN-014",
+  });
+  assert.equal(invalidBrokenVehicle.eligible, false, "broken vehicle must be infeasible");
+  addStep(steps, "broken-vehicle simulation rejected");
+
+  const invalidAssignment = await simulate({
+    incidentId,
+    shipmentId: "MED-2048",
+    targetDriverId: "DRV-014",
+    targetVehicleId: "VAN-009",
+  });
+  assert.equal(invalidAssignment.eligible, false, "mismatched driver/vehicle must be infeasible");
+  addStep(steps, "mismatched driver/vehicle simulation rejected");
 
   const feasible = await simulate({
     incidentId,
