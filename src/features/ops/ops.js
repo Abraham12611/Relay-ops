@@ -69,6 +69,15 @@ function eventItems(payload) {
   return getCollection(payload, ["events", "items"]);
 }
 
+export async function fetchIncidentEvents(api, incidentId, fallback = []) {
+  try {
+    const events = eventItems(await api.getEvents(incidentId));
+    return { events: events.length ? events : fallback, error: null };
+  } catch (error) {
+    return { events: fallback, error };
+  }
+}
+
 function makeMetric(label, value, caption, tone = "") {
   return `<article class="metric-card ${tone}"><p>${escapeHtml(label)}</p><strong>${escapeHtml(value)}</strong><span>${escapeHtml(caption)}</span></article>`;
 }
@@ -388,6 +397,7 @@ export function normalizeCaseResponse(payload) {
     plan: safePlan(linkedPlan),
     approval: linkedPlan?.approval ?? raw.approval ?? raw.currentApproval ?? null,
     roomUrl: raw.mattermostRoomUrl ?? raw.switch?.roomUrl ?? raw.chat?.url ?? null,
+    events: eventItems(raw.events?.length ? raw.events : incident.events),
   };
 }
 
@@ -453,7 +463,7 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
   async function loadCase(caseId) {
     const detail = normalizeCaseResponse(await api.getIncident(caseId));
     const [eventsResult, affectedResult, approvalResult] = await Promise.all([
-      api.getEvents(caseId).then((value) => ({ value }), (error) => ({ error })),
+      fetchIncidentEvents(api, caseId, detail.events),
       api.getIncidentShipments(caseId).then((value) => ({ value }), (error) => ({ error })),
       detail.plan?.id
         ? api.getApproval(detail.plan.id).then((value) => ({ value }), (error) => ({ error }))
@@ -468,14 +478,14 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
         api.getShipment(id).then((value) => unwrapData(value)?.shipment ?? unwrapData(value), () => null)));
       shipments = shipmentResults.filter(Boolean);
     }
-    const approvalError = approvalResult.error?.code === "APPROVAL_NOT_FOUND" ? null : approvalResult.error ?? null;
+    const approvalError = approvalResult.error?.status === 404 ? null : approvalResult.error ?? null;
     return {
       ...detail,
       shipments,
       approval: approvalResult.error ? detail.approval : approvalFrom(approvalResult.value) ?? detail.approval,
       approvalError,
-      events: eventsResult.error ? [] : eventItems(eventsResult.value),
-      eventsError: eventsResult.error ?? null,
+      events: eventsResult.events,
+      eventsError: eventsResult.error && eventsResult.events.length === 0 ? eventsResult.error : null,
       shipmentError: affectedResult.error
         ? `Affected shipments could not be refreshed: ${affectedResult.error.message}`
         : detail.shipmentIds.length && shipments.length === 0
@@ -491,16 +501,26 @@ export function mountOpsApp(root, { api, windowRef = window } = {}) {
     let eventsError = null;
     const incidentId = shipment.incidentId ?? shipment.caseId ?? raw.incidentId;
     if (!events.length && incidentId) {
-      try { events = eventItems(await api.getEvents(incidentId)); }
-      catch (error) { eventsError = error; }
+      const result = await fetchIncidentEvents(api, incidentId);
+      events = result.events;
+      eventsError = result.error;
+      if (!events.length) {
+        try {
+          const incident = unwrapData(await api.getIncident(incidentId));
+          events = eventItems(incident);
+          if (events.length) eventsError = null;
+        } catch {
+          // Keep the original event-feed error for the UI if both API paths fail.
+        }
+      }
     }
     return { shipment, events, eventsError, incidentId };
   }
 
   async function loadActivity() {
     const incidents = incidentItems(await api.listIncidents());
-    const eventResults = await Promise.all(incidents.map((item) => api.getEvents(item.id).then(eventItems, () => [])));
-    const events = eventResults.flat().sort((left, right) => new Date(right.createdAt ?? 0) - new Date(left.createdAt ?? 0));
+    const eventResults = await Promise.all(incidents.map((item) => fetchIncidentEvents(api, item.id, eventItems(item.events))));
+    const events = eventResults.flatMap((result) => result.events).sort((left, right) => new Date(right.createdAt ?? 0) - new Date(left.createdAt ?? 0));
     return { incidents, events };
   }
 

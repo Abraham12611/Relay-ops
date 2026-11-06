@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createOpsApi, OpsApiError } from "./ops-api.js";
-import { canDecideRecoveryPlan, escapeHtml, filterIncidents, formatDate, getCollection, getExecutionReceipt, getRoute, normalizeCaseResponse, unwrapData } from "./ops.js";
+import { canDecideRecoveryPlan, escapeHtml, fetchIncidentEvents, filterIncidents, formatDate, getCollection, getExecutionReceipt, getRoute, normalizeCaseResponse, unwrapData } from "./ops.js";
 
 const incidents = [
   { id: "INC-1042", summary: "Critical van breakdown", severity: "CRITICAL", status: "AWAITING_APPROVAL" },
@@ -64,6 +64,21 @@ test("case detail resolves the current plan from persisted incident records and 
   assert.deepEqual(detail.plan.feasibilitySnapshot, { eligible: true, capacityOk: true, conflicts: [] });
   assert.equal(detail.approval.id, "APR-44");
   assert.equal(canDecideRecoveryPlan(detail.incident, detail.plan), true);
+});
+
+test("case and activity timelines fall back to events embedded in persisted incident records", async () => {
+  const embedded = { id: "EVT-EMBEDDED", type: "INCIDENT_REPORTED", createdAt: "2026-11-06T17:00:00.000Z" };
+  const detail = normalizeCaseResponse({ data: { id: "INC-1042", events: [embedded] } });
+  assert.deepEqual(detail.events, [embedded]);
+
+  const unavailable = await fetchIncidentEvents({ getEvents: async () => { throw new Error("route not found"); } }, "INC-1042", detail.events);
+  assert.deepEqual(unavailable.events, [embedded]);
+  assert.equal(unavailable.error.message, "route not found");
+
+  const persisted = { id: "EVT-DEDICATED", type: "RECOVERY_PLAN_PROPOSED" };
+  const available = await fetchIncidentEvents({ getEvents: async () => ({ data: { events: [persisted] } }) }, "INC-1042", detail.events);
+  assert.deepEqual(available.events, [persisted]);
+  assert.equal(available.error, null);
 });
 
 test("execution receipts come only from the persisted reassignment audit event", () => {
